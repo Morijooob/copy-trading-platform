@@ -53,3 +53,4 @@ jobs:
           if (!balance || typeof balance !== 'object') throw new Error('Exir balance response invalid');
           console.log('EXIR_AUTH_OK: authenticated user and balance endpoints responded');
           NODE
+# Trigger real Exir connectivity check after repository secrets were configured.
