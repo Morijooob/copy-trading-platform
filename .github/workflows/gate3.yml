@@ -6,8 +6,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: gate3-${{ github.ref }}
-  cancel-in-progress: true
+  group: gate3-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   gate3:
