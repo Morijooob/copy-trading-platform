@@ -3,11 +3,6 @@ name: Exir Connectivity
 on:
   push:
     branches: ["feature/sandbox-exchange-adapter"]
-    paths:
-      - "src/exir-adapter.js"
-      - "test/exir-adapter.test.js"
-      - ".github/workflows/exir-connectivity.yml"
-      - "package.json"
   pull_request:
     branches: ["main"]
   workflow_dispatch:
@@ -28,7 +23,7 @@ jobs:
         run: node --test test/exir-adapter.test.js
 
   real-readonly-auth:
-    if: ${{ secrets.EXIR_API_KEY != '' && secrets.EXIR_API_SECRET != '' }}
+    if: ${{ github.event_name != 'pull_request' && secrets.EXIR_API_KEY != '' && secrets.EXIR_API_SECRET != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -53,5 +48,3 @@ jobs:
           if (!balance || typeof balance !== 'object') throw new Error('Exir balance response invalid');
           console.log('EXIR_AUTH_OK: authenticated user and balance endpoints responded');
           NODE
-# Trigger real Exir connectivity check after repository secrets were configured.
-# Exir live-auth verification is read-only: no order or withdrawal call is made.
