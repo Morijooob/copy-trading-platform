@@ -83,13 +83,23 @@ export class RiskControlledExecution {
   }
 
   exportState() {
-    return { audit: this.getAuditLog(), reservations: [...this.reservations.entries()].map(([id, value]) => [id, structuredClone(value)]) };
+    return {
+      risk: this.riskEngine.exportState?.(),
+      audit: this.getAuditLog(),
+      reservations: [...this.reservations.entries()].map(([id, value]) => [id, structuredClone(value)])
+    };
   }
 
   restoreState(state) {
     if (!state || !Array.isArray(state.audit) || !Array.isArray(state.reservations)) throw new Error("invalid risk-controlled execution state");
+    if (state.risk !== undefined) {
+      if (typeof this.riskEngine.restoreState !== "function") throw new Error("risk engine cannot restore state");
+      this.riskEngine.restoreState(state.risk);
+    }
     this.audit = structuredClone(state.audit);
     this.reservations = new Map(state.reservations.map(([id, value]) => [id, structuredClone(value)]));
+    const reservationTotal = [...this.reservations.values()].reduce((sum, value) => sum + value.remainingNotional, 0);
+    if (Math.abs(reservationTotal - this.riskEngine.reservedExposure) > 1e-9) throw new Error("risk reservation state mismatch");
   }
 
   getAuditLog() { return structuredClone(this.audit); }
