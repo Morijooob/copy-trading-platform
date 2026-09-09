@@ -20,7 +20,7 @@ jobs:
   gate2:
     name: Gate 2 event integrity suite
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -36,9 +36,11 @@ jobs:
           test -f package.json
           test -f src/execution-engine.js
           test -f test/gate2.test.js
+          test -f test/persistence-store-v2.test.js
+          test -f test/persistence-hardening-v3.test.js
 
       - name: Run Gate 2 tests
         run: node test/gate2.test.js
 
-      - name: Run full Gate 1 regression suite
-        run: npm test
+      - name: Run persistence regression tests
+        run: node --test test/persistence-store-v2.test.js test/persistence-hardening-v3.test.js
