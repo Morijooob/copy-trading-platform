@@ -3,9 +3,11 @@ export class ExecutionEngine {
     this.orders = new Map();
     this.ordersByClientId = new Map();
     this.nextId = 1;
+    this.nextEventId = 1;
+    this.auditLog = [];
   }
 
-  createOrder({ symbol, side, quantity, timeoutMs = 5000, clientOrderId = null }) {
+  createOrder({ symbol, side, quantity, timeoutMs = 5000, clientOrderId = null, eventSequence = null }) {
     if (!symbol || !side || !Number.isFinite(quantity) || quantity <= 0) {
       throw new Error("invalid order");
     }
@@ -26,6 +28,7 @@ export class ExecutionEngine {
       ) {
         throw new Error("conflicting client order id");
       }
+      this.record(existing.id, "DUPLICATE_ORDER", { clientOrderId }, eventSequence);
       return this.snapshot(existing);
     }
 
@@ -41,14 +44,16 @@ export class ExecutionEngine {
       timeoutMs,
       elapsedMs: 0,
       recovered: false,
+      lastEventSequence: null,
       processedFillIds: new Map()
     };
     this.orders.set(id, order);
     if (clientOrderId !== null) this.ordersByClientId.set(clientOrderId, id);
+    this.record(id, "ORDER_CREATED", { symbol, side, quantity, timeoutMs, clientOrderId }, eventSequence);
     return this.snapshot(order);
   }
 
-  onExchangeFill(id, quantity, fillId = null) {
+  onExchangeFill(id, quantity, fillId = null, eventSequence = null) {
     const order = this.require(id);
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -61,6 +66,7 @@ export class ExecutionEngine {
         if (previousQuantity !== quantity) {
           throw new Error("conflicting fill id");
         }
+        this.record(id, "DUPLICATE_FILL", { fillId, quantity }, eventSequence);
         return this.snapshot(order);
       }
       order.processedFillIds.set(fillId, quantity);
@@ -68,10 +74,11 @@ export class ExecutionEngine {
 
     order.filledQty = Math.min(order.requestedQty, order.filledQty + quantity);
     order.status = order.filledQty === order.requestedQty ? "FILLED" : "PARTIAL";
+    this.record(id, "EXCHANGE_FILL", { fillId, quantity, status: order.status }, eventSequence);
     return this.snapshot(order);
   }
 
-  tick(id, elapsedMs) {
+  tick(id, elapsedMs, eventSequence = null) {
     const order = this.require(id);
     if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
       throw new Error("invalid elapsed time");
@@ -84,16 +91,18 @@ export class ExecutionEngine {
     } else if (order.elapsedMs >= order.timeoutMs) {
       order.status = "TIMED_OUT";
     }
+    this.record(id, "TICK", { elapsedMs, status: order.status }, eventSequence);
     return this.snapshot(order);
   }
 
-  crash(id) {
+  crash(id, eventSequence = null) {
     const order = this.require(id);
     if (order.status !== "FILLED") order.status = "CRASHED";
+    this.record(id, "CRASH", { status: order.status }, eventSequence);
     return this.snapshot(order);
   }
 
-  recover(id) {
+  recover(id, eventSequence = null) {
     const order = this.require(id);
     if (order.status !== "CRASHED" && order.status !== "TIMED_OUT") {
       return this.snapshot(order);
@@ -107,7 +116,35 @@ export class ExecutionEngine {
     } else {
       order.status = "PENDING";
     }
+    this.record(id, "RECOVERY", { status: order.status, filledQty: order.filledQty }, eventSequence);
     return this.snapshot(order);
+  }
+
+  getAuditLog(id = null) {
+    const events = id === null ? this.auditLog : this.auditLog.filter((event) => event.orderId === id);
+    return structuredClone(events);
+  }
+
+  record(orderId, type, payload, eventSequence = null) {
+    const order = this.orders.get(orderId);
+    if (eventSequence !== null) {
+      if (!Number.isInteger(eventSequence) || eventSequence <= 0) {
+        throw new Error("invalid event sequence");
+      }
+      if (order && order.lastEventSequence !== null && eventSequence <= order.lastEventSequence) {
+        throw new Error("out-of-order event");
+      }
+      if (order) order.lastEventSequence = eventSequence;
+    }
+
+    this.auditLog.push({
+      eventId: String(this.nextEventId++),
+      orderId,
+      type,
+      payload: structuredClone(payload),
+      eventSequence,
+      recordedAt: this.auditLog.length
+    });
   }
 
   require(id) {
