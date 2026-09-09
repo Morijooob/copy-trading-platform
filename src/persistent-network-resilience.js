@@ -41,9 +41,16 @@ export class PersistentNetworkResilience extends NetworkResilience {
       if (request.status === "CONFIRMED") continue;
 
       const reconciliation = this.reconcileResult(request);
+      if (!reconciliation || typeof reconciliation.confirmed !== "boolean") {
+        throw new Error("invalid reconciliation response");
+      }
+
       if (reconciliation.confirmed === true) {
+        if (!reconciliation.exchangeOrderId) {
+          throw new Error("confirmed reconciliation missing exchange order id");
+        }
         request.status = "CONFIRMED";
-        request.exchangeOrderId = reconciliation.exchangeOrderId ?? request.exchangeOrderId;
+        request.exchangeOrderId = reconciliation.exchangeOrderId;
         request.filledQty = reconciliation.filledQty ?? request.filledQty ?? null;
         request.lastError = null;
         request.reconciled = true;
@@ -51,8 +58,6 @@ export class PersistentNetworkResilience extends NetworkResilience {
         continue;
       }
 
-      // Explicitly unresolved at the exchange means the original request was not found.
-      // It is safe to retry, but we still keep the request persisted and auditable.
       request.status = "UNKNOWN";
       request.reconciled = true;
       request.lastError = null;
