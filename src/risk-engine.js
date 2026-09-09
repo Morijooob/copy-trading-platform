@@ -44,6 +44,20 @@ export class RiskEngine {
     return this.reservedExposure;
   }
 
+  commitReservedExposure(notional) {
+    if (!Number.isFinite(notional) || notional <= 0) throw new Error("invalid exposure commit");
+    if (notional > this.reservedExposure) throw new Error("exposure commit exceeds reservation");
+    this.reservedExposure -= notional;
+    this.exposure += notional;
+    if (this.exposure + this.reservedExposure > this.limits.maxExposure) {
+      this.reservedExposure += notional;
+      this.exposure -= notional;
+      throw new Error("max exposure exceeded");
+    }
+    this.audit.push({ type: "EXPOSURE_COMMITTED", notional, exposure: this.exposure, reservedExposure: this.reservedExposure });
+    return { exposure: this.exposure, reservedExposure: this.reservedExposure };
+  }
+
   approve({ side, quantity, price, currentExposure = this.exposure, realizedLoss = this.dailyRealizedLoss } = {}) {
     if (side !== "BUY" && side !== "SELL") throw new Error("invalid side");
     if (!Number.isFinite(quantity) || quantity <= 0) throw new Error("invalid quantity");
