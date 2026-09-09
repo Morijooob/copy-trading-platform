@@ -9,11 +9,13 @@ const master = createMasterProfile({ masterId: 'm1', name: 'Master One' });
 const signal = createCopySignal({ signalId: 'sig-1', masterId: 'm1', symbol: 'btcusdt', side: 'BUY', quantity: 2, price: 100, timestamp: 1700000000000 });
 const paperSub = (followerId, allocation = 1) => createFollowerSubscription({ followerId, masterId: 'm1', mode: COPY_TRADING_MODES.PAPER, allocation, maxRiskPercent: 50 });
 
+const unrelatedPaperSub = (followerId, masterId, allocation = 1) => createFollowerSubscription({ followerId, masterId, mode: COPY_TRADING_MODES.PAPER, allocation, maxRiskPercent: 50 });
+
 test('fans one master signal out to all active matching followers', () => {
   const subscriptions = new Map([
     [subscriptionKey({ followerId: 'f1', masterId: 'm1' }), paperSub('f1', 1)],
     [subscriptionKey({ followerId: 'f2', masterId: 'm1' }), paperSub('f2', 0.5)],
-    [subscriptionKey({ followerId: 'other', masterId: 'm2' }), paperSub('other', 1)]
+    [subscriptionKey({ followerId: 'other', masterId: 'm2' }), unrelatedPaperSub('other', 'm2', 1)]
   ]);
   const engine = createCopyEngine();
   const intents = engine.planSignal({ master, signal, subscriptions, mode: COPY_TRADING_MODES.PAPER });
