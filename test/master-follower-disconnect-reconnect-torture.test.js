@@ -6,7 +6,9 @@ import { RiskEngine } from "../src/risk-engine.js";
 import { MasterFollowerCoordinator } from "../src/master-follower-coordinator.js";
 
 function makePipeline() {
-  const risk = new RiskEngine({ maxOrderNotional: 5000, maxDailyLoss: 5000, maxExposure: 1000000 });
+  // Keep risk headroom deliberately far above the torture volume so this test
+  // isolates coordination/race behavior rather than cumulative exposure limits.
+  const risk = new RiskEngine({ maxOrderNotional: 5000, maxDailyLoss: 5000, maxExposure: 10_000_000 });
   const exchange = new DemoExchangeSimulator({ marketPrice: 100 });
   const execution = new ExecutionEngine();
   const pipeline = new DemoExecutionPipeline({ riskEngine: risk, exchange, executionEngine: execution });
@@ -60,11 +62,12 @@ const secondWave = Array.from({ length: TOTAL }, (_, i) => ({
   price: 100
 }));
 
-await Promise.all(secondWave.flatMap((signal) => [
+const secondResults = await Promise.all(secondWave.flatMap((signal) => [
   Promise.resolve().then(() => coordinator.publishSignal(signal)),
   Promise.resolve().then(() => coordinator.publishSignal({ ...signal, side: "SELL", quantity: 777, price: 2 }))
 ]));
 
+assert(secondResults.every((result) => result.status === "PROCESSED"));
 for (const id of ["F2", "F3"]) {
   assert.equal(pipelines[id].execution.orders.size, TOTAL * 2);
   assert.equal(pipelines[id].exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, TOTAL * 2);
