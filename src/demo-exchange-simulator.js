@@ -108,7 +108,7 @@ export class DemoExchangeSimulator {
     const priorValue = order.filledQty * (order.averagePrice ?? order.executionPrice);
     const fillValue = quantity * order.executionPrice;
     order.filledQty += quantity;
-    order.averagePrice = (priorValue + fillValue) / order.filledQty;
+    order.averagePrice = this.roundPrice((priorValue + fillValue) / order.filledQty);
     order.status = order.filledQty === order.requestedQty ? "FILLED" : "PARTIAL";
     order.fills.push({ fillId, quantity, price: order.executionPrice });
     this.record("FILL", { exchangeOrderId: order.exchangeOrderId, fillId, quantity, price: order.executionPrice });
@@ -116,7 +116,12 @@ export class DemoExchangeSimulator {
 
   executionPrice(side, referencePrice) {
     const factor = this.slippageBps / 10000;
-    return side === "BUY" ? referencePrice * (1 + factor) : referencePrice * (1 - factor);
+    const rawPrice = side === "BUY" ? referencePrice * (1 + factor) : referencePrice * (1 - factor);
+    return this.roundPrice(rawPrice);
+  }
+
+  roundPrice(price) {
+    return Number(price.toFixed(12));
   }
 
   validateOrder({ clientOrderId, symbol, side, quantity }) {
