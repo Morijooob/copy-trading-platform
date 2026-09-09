@@ -15,7 +15,9 @@ async function request(base, path, options) {
   return { status: res.status, data };
 }
 
-test('web app health and public masters are available', async () => withServer(async base => {
+const authHeaders = token => ({ authorization: `Bearer ${token}` });
+
+ test('web app health and public masters are available', async () => withServer(async base => {
   const health = await request(base, '/health');
   assert.equal(health.status, 200);
   assert.equal(health.data.ok, true);
@@ -25,10 +27,33 @@ test('web app health and public masters are available', async () => withServer(a
   assert.ok(masters.data.every(m => Number.isFinite(m.roi)));
 }));
 
+test('real account registration login profile and logout work', async () => withServer(async base => {
+  const register = await request(base, '/api/auth/register', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone: '+989121234568', password: 'VeryStrong!Pass123', name: 'کاربر تست' }) });
+  assert.equal(register.status, 201);
+  assert.equal(register.data.account.kycLevel, 'UNVERIFIED');
+  const login = await request(base, '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone: '+989121234568', password: 'VeryStrong!Pass123' }) });
+  assert.equal(login.status, 200);
+  const me = await request(base, '/api/me', { headers: authHeaders(login.data.token) });
+  assert.equal(me.status, 200);
+  assert.equal(me.data.phone, '+989121234568');
+  assert.equal((await request(base, '/api/auth/logout', { method: 'POST', headers: authHeaders(login.data.token) })).status, 200);
+  assert.equal((await request(base, '/api/me', { headers: authHeaders(login.data.token) })).status, 401);
+}));
+
+test('live copy is blocked until identity verification', async () => withServer(async base => {
+  const register = await request(base, '/api/auth/register', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone: '+989121234569', password: 'VeryStrong!Pass123', name: 'Live Test' }) });
+  const login = await request(base, '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ phone: '+989121234569', password: 'VeryStrong!Pass123' }) });
+  assert.equal(register.status, 201);
+  assert.equal(login.status, 200);
+  const response = await request(base, '/api/copy', { method: 'POST', headers: { ...authHeaders(login.data.token), 'content-type': 'application/json' }, body: JSON.stringify({ masterId: 'm1', mode: 'LIVE' }) });
+  assert.equal(response.status, 403);
+  assert.match(response.data.error, /identity verification required/);
+}));
+
 test('demo session, profile, copy subscription and dashboard are connected', async () => withServer(async base => {
   const session = await request(base, '/api/session', { method: 'POST' });
   assert.equal(session.status, 200);
-  const auth = { authorization: `Bearer ${session.data.token}` };
+  const auth = authHeaders(session.data.token);
   const profile = await request(base, '/api/profile', { headers: auth });
   assert.equal(profile.status, 200);
   assert.equal(profile.data.mode, 'DEMO');
@@ -42,7 +67,7 @@ test('demo session, profile, copy subscription and dashboard are connected', asy
 
 test('duplicate copy is rejected and stop-copy works', async () => withServer(async base => {
   const session = await request(base, '/api/session', { method: 'POST' });
-  const auth = { authorization: `Bearer ${session.data.token}` };
+  const auth = authHeaders(session.data.token);
   const opts = { method: 'POST', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify({ masterId: 'm2', mode: 'DEMO', allocation: 1 }) };
   assert.equal((await request(base, '/api/copy', opts)).status, 201);
   assert.equal((await request(base, '/api/copy', opts)).status, 409);
