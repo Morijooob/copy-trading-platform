@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: gate1-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   gate1:
