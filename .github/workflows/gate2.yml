@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/persistence-hardening
   pull_request:
     branches: [main]
   workflow_dispatch:
