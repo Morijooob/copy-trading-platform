@@ -2,18 +2,22 @@ import assert from "node:assert/strict";
 import { DemoExchangeSimulator } from "../src/demo-exchange-simulator.js";
 import { DemoExecutionPipeline } from "../src/demo-execution-pipeline.js";
 import { MasterFollowerCoordinator } from "../src/master-follower-coordinator.js";
+import { RiskEngine } from "../src/risk-engine.js";
 
 const TOTAL = 300;
 const followers = ["F1", "F2", "F3"];
 
 function makePipeline(id) {
   const exchange = new DemoExchangeSimulator({ marketPrice: 100 });
-  const pipeline = new DemoExecutionPipeline({
-    followerId: id,
-    exchange,
+  const riskEngine = new RiskEngine({
     maxOrderNotional: 5_000,
     maxDailyLoss: 5_000,
     maxExposure: 10_000_000,
+  });
+  const pipeline = new DemoExecutionPipeline({
+    followerId: id,
+    riskEngine,
+    exchange,
   });
   return { pipeline, exchange };
 }
