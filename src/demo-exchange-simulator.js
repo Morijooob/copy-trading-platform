@@ -76,6 +76,14 @@ export class DemoExchangeSimulator {
 
   restore(state) {
     if (!state || !Array.isArray(state.orders) || !Array.isArray(state.audit)) throw new Error("invalid exchange state");
+    if (!Number.isFinite(state.marketPrice) || state.marketPrice <= 0) throw new Error("invalid exchange market price");
+    if (!Number.isFinite(state.latencyMs) || state.latencyMs < 0) throw new Error("invalid exchange latency");
+    if (!Number.isFinite(state.slippageBps) || state.slippageBps < 0) throw new Error("invalid exchange slippage");
+    if (!Number.isInteger(state.nextOrderId) || state.nextOrderId < 1) throw new Error("invalid exchange order counter");
+    if (!Number.isInteger(state.nextFillId) || state.nextFillId < 1) throw new Error("invalid exchange fill counter");
+    this.marketPrice = state.marketPrice;
+    this.latencyMs = state.latencyMs;
+    this.slippageBps = state.slippageBps;
     this.nextOrderId = state.nextOrderId;
     this.nextFillId = state.nextFillId;
     this.connected = Boolean(state.connected);
@@ -104,14 +112,15 @@ export class DemoExchangeSimulator {
   }
 
   fill(order, quantity) {
+    const normalizedQuantity = this.roundNumber(quantity);
     const fillId = `DFILL-${this.nextFillId++}`;
     const priorValue = order.filledQty * (order.averagePrice ?? order.executionPrice);
-    const fillValue = quantity * order.executionPrice;
-    order.filledQty += quantity;
+    const fillValue = normalizedQuantity * order.executionPrice;
+    order.filledQty = this.roundNumber(order.filledQty + normalizedQuantity);
     order.averagePrice = this.roundPrice((priorValue + fillValue) / order.filledQty);
     order.status = order.filledQty === order.requestedQty ? "FILLED" : "PARTIAL";
-    order.fills.push({ fillId, quantity, price: order.executionPrice });
-    this.record("FILL", { exchangeOrderId: order.exchangeOrderId, fillId, quantity, price: order.executionPrice });
+    order.fills.push({ fillId, quantity: normalizedQuantity, price: order.executionPrice });
+    this.record("FILL", { exchangeOrderId: order.exchangeOrderId, fillId, quantity: normalizedQuantity, price: order.executionPrice });
   }
 
   executionPrice(side, referencePrice) {
@@ -120,8 +129,12 @@ export class DemoExchangeSimulator {
     return this.roundPrice(rawPrice);
   }
 
+  roundNumber(value) {
+    return Number(value.toFixed(12));
+  }
+
   roundPrice(price) {
-    return Number(price.toFixed(12));
+    return this.roundNumber(price);
   }
 
   validateOrder({ clientOrderId, symbol, side, quantity }) {
