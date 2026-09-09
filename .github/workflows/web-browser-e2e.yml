@@ -22,6 +22,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node web-server.mjs > /tmp/copy-trading-web.log 2>&1 & echo $! > /tmp/web.pid
       - run: node -e "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
-      - run: BASE_URL=http://127.0.0.1:3000 node test/web-browser-e2e.mjs
+      - name: Run browser E2E smoke
+        run: BASE_URL=http://127.0.0.1:3000 node test/web-browser-e2e.mjs
       - if: always()
         run: cat /tmp/copy-trading-web.log
