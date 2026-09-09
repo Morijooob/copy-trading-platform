@@ -27,7 +27,6 @@ export class RiskControlledExecution {
     const decision = this.riskEngine.approve({ side, quantity, price });
     const entry = { symbol, side, quantity, price, clientOrderId, approved: decision.approved, failedChecks: [...decision.failedChecks], notional: decision.notional };
     this.audit.push(structuredClone(entry));
-
     if (!decision.approved) return { accepted: false, risk: structuredClone(decision), order: null };
 
     this.riskEngine.reserveExposure(decision.notional);
@@ -42,8 +41,7 @@ export class RiskControlledExecution {
   }
 
   onExchangeFill(id, quantity, fillId = null, eventSequence = null) {
-    const before = this.executionEngine.getOrderByClientId?.(null);
-    const current = this.executionEngine.getRecoverableOrders().find((order) => order.id === id) ?? null;
+    const current = this.executionEngine.getOrderById?.(id);
     if (!current) throw new Error(`unknown order: ${id}`);
     const updated = this.executionEngine.onExchangeFill(id, quantity, fillId, eventSequence);
     const deltaQty = updated.filledQty - current.filledQty;
@@ -52,7 +50,7 @@ export class RiskControlledExecution {
   }
 
   reconcileExchangeState(id, exchangeState, eventSequence = null) {
-    const current = this.executionEngine.getRecoverableOrders().find((order) => order.id === id) ?? null;
+    const current = this.executionEngine.getOrderById?.(id);
     if (!current) throw new Error(`unknown order: ${id}`);
     const updated = this.executionEngine.reconcileExchangeState(id, exchangeState, eventSequence);
     if (exchangeState.found === true) {
