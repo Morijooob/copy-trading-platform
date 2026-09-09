@@ -3,7 +3,6 @@ import test from "node:test";
 import { BinanceSandboxAdapter } from "../src/binance-sandbox-adapter.js";
 
 const fixedClock = () => 1499827319559;
-const docsSecret = "NhqPtmdSJYdKjVHjA7PZj4Mge3R5YNiP1e3UZYdKjVHjA7PZj4Mge3R5YNiP1e3UZjInClVN65XAbvqqM6A7H5fATj0j";
 
 // Binance's official HMAC regression vector for a signed LIMIT order.
 test("Binance sandbox HMAC signing matches the official documented regression vector", () => {
