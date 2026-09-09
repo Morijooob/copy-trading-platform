@@ -36,7 +36,7 @@ function makeSystem(limits = {}) {
 
 {
   const { execution, risk, gateway } = makeSystem();
-  risk.recordRealizedPnl(-200);
+  risk.recordRealizedPnl(-201);
   const result = gateway.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 1, price: 100, clientOrderId: "blocked-loss" });
   assert.equal(result.accepted, false);
   assert.deepEqual(result.risk.failedChecks, ["DAILY_LOSS"]);
