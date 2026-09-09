@@ -1,0 +1,28 @@
+name: Paper Exchange MVP
+
+on:
+  push:
+    branches: [main, feature/mvp-paper-exchange]
+    paths:
+      - 'src/paper-exchange.js'
+      - 'test/paper-exchange.test.js'
+      - 'package.json'
+      - '.github/workflows/paper-exchange.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  paper-exchange:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run Paper Exchange tests
+        run: node --test test/paper-exchange.test.js
