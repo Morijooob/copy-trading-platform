@@ -13,7 +13,12 @@ export class NetworkResilience {
     this.validateRequest(clientRequestId, order);
 
     const existing = this.requests.get(clientRequestId);
-    if (existing) return structuredClone(existing);
+    if (existing) {
+      if (JSON.stringify(existing.order) !== JSON.stringify(order)) {
+        throw new Error("conflicting order for existing client request id");
+      }
+      return structuredClone(existing);
+    }
 
     const request = {
       id: String(this.nextId++),
@@ -35,8 +40,11 @@ export class NetworkResilience {
 
     const reconciliation = this.reconcileResult(request);
     if (reconciliation.confirmed) {
+      if (!reconciliation.exchangeOrderId) {
+        throw new Error("confirmed reconciliation missing exchange order id");
+      }
       request.status = "CONFIRMED";
-      request.exchangeOrderId = reconciliation.exchangeOrderId ?? request.exchangeOrderId;
+      request.exchangeOrderId = reconciliation.exchangeOrderId;
       request.reconciled = true;
       request.lastError = null;
       return structuredClone(request);
