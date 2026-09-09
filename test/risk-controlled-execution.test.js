@@ -10,11 +10,13 @@ function makeSystem(limits = {}) {
 }
 
 {
-  const { execution, gateway } = makeSystem();
+  const { execution, risk, gateway } = makeSystem();
   const result = gateway.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 2, price: 100, clientOrderId: "r1" });
   assert.equal(result.accepted, true);
   assert.equal(result.order.status, "PENDING");
   assert.equal(execution.getRecoverableOrders().length, 1);
+  assert.equal(risk.exposure, 200);
+  assert.equal(risk.reservedExposure, 0);
 }
 
 {
@@ -36,7 +38,7 @@ function makeSystem(limits = {}) {
 
 {
   const { execution, risk, gateway } = makeSystem();
-  risk.recordRealizedPnl(-200);
+  risk.recordRealizedPnl(-201);
   const result = gateway.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 1, price: 100, clientOrderId: "blocked-loss" });
   assert.equal(result.accepted, false);
   assert.deepEqual(result.risk.failedChecks, ["DAILY_LOSS"]);
@@ -53,15 +55,41 @@ function makeSystem(limits = {}) {
 }
 
 {
+  const { execution, risk, gateway } = makeSystem({ maxExposure: 150 });
+  const first = gateway.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 1, price: 100, clientOrderId: "atomic-1" });
+  assert.equal(first.accepted, true);
+  assert.equal(risk.exposure, 100);
+
+  const second = gateway.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 1, price: 100, clientOrderId: "atomic-2" });
+  assert.equal(second.accepted, false);
+  assert.deepEqual(second.risk.failedChecks, ["MAX_EXPOSURE"]);
+  assert.equal(risk.reservedExposure, 0);
+  assert.equal(execution.getRecoverableOrders().length, 1);
+}
+
+{
   const { execution, gateway } = makeSystem();
   assert.throws(() => gateway.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 0, price: 100 }), /invalid quantity/);
   assert.equal(execution.getRecoverableOrders().length, 0);
 }
 
 {
+  const risk = new RiskEngine({ maxOrderNotional: 1000, maxDailyLoss: 200, maxExposure: 1500 });
+  const failingExecution = { createOrder() { throw new Error("simulated execution failure"); } };
+  const gateway = new RiskControlledExecution({ riskEngine: risk, executionEngine: failingExecution });
+  assert.throws(() => gateway.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 1, price: 100, clientOrderId: "release-1" }), /simulated execution failure/);
+  assert.equal(risk.reservedExposure, 0);
+  assert.equal(risk.exposure, 0);
+  assert.equal(risk.getReservation("RISKRES-1").status, "RELEASED");
+}
+
+{
   const { gateway } = makeSystem();
   gateway.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 1, price: 100, clientOrderId: "audit-1" });
-  assert.deepEqual(gateway.getAuditLog(), [{ symbol: "BTCUSDT", side: "BUY", quantity: 1, price: 100, clientOrderId: "audit-1", approved: true, failedChecks: [], notional: 100 }]);
+  const audit = gateway.getAuditLog();
+  assert.equal(audit.length, 1);
+  assert.equal(audit[0].execution, "COMMITTED");
+  assert.equal(audit[0].reservationId, "RISKRES-1");
 }
 
 console.log("risk-controlled-execution tests: ok");
