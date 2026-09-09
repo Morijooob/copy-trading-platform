@@ -21,7 +21,9 @@ function buildFixture({ masters = 3, followersPerMaster = 100, mode = COPY_TRADI
         masterId: master.masterId,
         mode,
         allocation: 0.5 + (f % 3) * 0.25,
-        maxRiskPercent: 25
+        maxRiskPercent: 25,
+        liveExecutionEnabled: mode === COPY_TRADING_MODES.LIVE,
+        exchangeAdapter: mode === COPY_TRADING_MODES.LIVE ? LIVE_ADAPTER : null
       }));
     }
   }
