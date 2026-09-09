@@ -34,6 +34,8 @@ jobs:
         run: node --test test/paper-trading-api.test.js
       - name: Run Paper Trading HTTP smoke tests
         run: node --test test/paper-server.test.js
+      - name: Run multi-account Paper Trading stress tests
+        run: node --test test/paper-trading-stress.test.js
       - name: Validate Paper Trading UI
         run: test -f paper-ui/index.html && grep -q "Paper Trading" paper-ui/index.html
       - name: Run full regression
