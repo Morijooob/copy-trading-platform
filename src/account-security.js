@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 
 const PASSWORD_MIN_LENGTH = 12;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24;
+const SCRYPT = { N: 131072, r: 8, p: 1 };
 
 function normalizePhone(phone) {
   const value = String(phone || '').replace(/[\s-]/g, '');
@@ -18,19 +19,17 @@ function normalizeEmail(email) {
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   const value = String(password || '');
   if (value.length < PASSWORD_MIN_LENGTH) throw new Error(`password must be at least ${PASSWORD_MIN_LENGTH} characters`);
-  const hash = crypto.scryptSync(value, salt, 64, { N: 16384, r: 8, p: 1 }).toString('hex');
-  return { salt, hash };
+  const hash = crypto.scryptSync(value, salt, 64, SCRYPT).toString('hex');
+  return { salt, hash, algorithm: 'scrypt', params: SCRYPT };
 }
 
 function verifyPassword(password, stored) {
-  const derived = crypto.scryptSync(String(password || ''), stored.salt, 64, { N: 16384, r: 8, p: 1 });
+  const derived = crypto.scryptSync(String(password || ''), stored.salt, 64, SCRYPT);
   const expected = Buffer.from(stored.hash, 'hex');
   return expected.length === derived.length && crypto.timingSafeEqual(expected, derived);
 }
 
-function id(prefix) {
-  return `${prefix}_${crypto.randomUUID()}`;
-}
+function id(prefix) { return `${prefix}_${crypto.randomUUID()}`; }
 
 export const KYC_LEVELS = Object.freeze({ UNVERIFIED: 'UNVERIFIED', PHONE_VERIFIED: 'PHONE_VERIFIED', IDENTITY_PENDING: 'IDENTITY_PENDING', VERIFIED: 'VERIFIED', REJECTED: 'REJECTED' });
 
@@ -48,23 +47,17 @@ export class AccountSecurity {
     const normalizedPhone = normalizePhone(phone);
     const normalizedEmail = normalizeEmail(email);
     if (this.accounts.has(normalizedPhone)) throw new Error('account already exists');
-    this.assertHuman(humanChallengeToken);
-    if (this.phoneVerifier && !this.phoneVerifier.verify({ phone: normalizedPhone, token: phoneVerificationToken })) {
-      throw new Error('phone verification failed');
-    }
+    this.assertHuman(humanChallengeToken, 'register');
+    if (this.phoneVerifier && !this.phoneVerifier.verify({ phone: normalizedPhone, token: phoneVerificationToken })) throw new Error('phone verification failed');
     const credentials = hashPassword(password);
-    const account = {
-      userId: id('usr'), phone: normalizedPhone, name: String(name || '').trim().slice(0, 80) || 'کاربر', email: normalizedEmail,
-      credentials, role: 'FOLLOWER', kycLevel: this.phoneVerifier ? KYC_LEVELS.PHONE_VERIFIED : KYC_LEVELS.UNVERIFIED,
-      createdAt: new Date(this.clock()).toISOString(), lockedUntil: 0
-    };
+    const account = { userId: id('usr'), phone: normalizedPhone, name: String(name || '').trim().slice(0, 80) || 'کاربر', email: normalizedEmail, credentials, role: 'FOLLOWER', kycLevel: this.phoneVerifier ? KYC_LEVELS.PHONE_VERIFIED : KYC_LEVELS.UNVERIFIED, createdAt: new Date(this.clock()).toISOString(), lockedUntil: 0 };
     this.accounts.set(normalizedPhone, account);
     return this.publicAccount(account);
   }
 
   login({ phone, password, humanChallengeToken = null }) {
     const normalizedPhone = normalizePhone(phone);
-    this.assertHuman(humanChallengeToken);
+    this.assertHuman(humanChallengeToken, 'login');
     const account = this.accounts.get(normalizedPhone);
     const now = this.clock();
     if (!account || account.lockedUntil > now) throw new Error('invalid credentials');
@@ -89,10 +82,7 @@ export class AccountSecurity {
     return { ...session, account: this.publicAccount(account) };
   }
 
-  logout(token) {
-    this.sessions.delete(String(token || ''));
-    return { ok: true };
-  }
+  logout(token) { this.sessions.delete(String(token || '')); return { ok: true }; }
 
   updateProfile(token, { name, email }) {
     const session = this.authenticate(token);
@@ -116,12 +106,10 @@ export class AccountSecurity {
     return account;
   }
 
-  assertHuman(token) {
+  assertHuman(token, action) {
     if (!this.humanChallengeVerifier) return;
-    if (!token || !this.humanChallengeVerifier.verify(token)) throw new Error('human verification required');
+    if (!token || !this.humanChallengeVerifier.verify({ token, action })) throw new Error('human verification required');
   }
 
-  publicAccount(account) {
-    return { userId: account.userId, phone: account.phone, name: account.name, email: account.email, role: account.role, kycLevel: account.kycLevel, createdAt: account.createdAt };
-  }
+  publicAccount(account) { return { userId: account.userId, phone: account.phone, name: account.name, email: account.email, role: account.role, kycLevel: account.kycLevel, createdAt: account.createdAt }; }
 }
