@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/**'
       - 'test/**'
+      - 'paper-ui/**'
       - 'package.json'
       - '.github/workflows/paper-exchange.yml'
   workflow_dispatch:
@@ -28,5 +29,9 @@ jobs:
         run: node --test test/paper-exchange.test.js
       - name: Run Copy + Paper Exchange integration tests
         run: node --test test/copy-paper-integration.test.js
+      - name: Run Paper Trading API tests
+        run: node --test test/paper-trading-api.test.js
+      - name: Validate Paper Trading UI
+        run: test -f paper-ui/index.html && grep -q "Paper Trading" paper-ui/index.html
       - name: Run full regression
         run: npm test
