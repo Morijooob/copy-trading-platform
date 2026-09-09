@@ -13,7 +13,7 @@ function makePipeline() {
   return { risk, exchange, execution, pipeline };
 }
 
-// Many concurrent callers publish the exact same master intent. The coordinator must fan out once.
+// 100 concurrent callers publish the exact same master intent. The coordinator must fan out once.
 {
   const followers = ["F1", "F2"];
   const pipelines = Object.fromEntries(followers.map((id) => [id, makePipeline()]));
@@ -66,10 +66,10 @@ function makePipeline() {
   assert.equal(f2.exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, 1);
 }
 
-// Burst test: many distinct master intents are interleaved with exact replays.
-// Every logical master/follower pair must produce exactly one demo exchange order.
-// Risk exposure is intentionally high here so this test measures concurrency/idempotency,
-// while the dedicated risk tests cover exposure rejection.
+// STRESS-200: 200 distinct master intents are submitted concurrently, with an exact replay
+// racing alongside each first submission. Every logical master/follower pair must produce
+// exactly one demo exchange order. This intentionally stresses concurrency + idempotency;
+// dedicated risk tests cover exposure rejection.
 {
   const followers = ["F1", "F2"];
   const pipelines = Object.fromEntries(followers.map((id) => [id, makePipeline()]));
@@ -77,29 +77,42 @@ function makePipeline() {
   for (const followerId of followers) coordinator.joinFollower({ followerId, pipeline: pipelines[followerId].pipeline });
 
   const signals = Array.from({ length: 200 }, (_, i) => ({
-    masterSignalId: `BURST-${String(i).padStart(3, "0")}`,
+    masterSignalId: `STRESS-200-${String(i).padStart(3, "0")}`,
     symbol: i % 2 === 0 ? "BTCUSDT" : "ETHUSDT",
     side: i % 3 === 0 ? "SELL" : "BUY",
     quantity: 1 + (i % 5),
     price: 100
   }));
 
-  for (const signal of signals) {
-    const first = coordinator.publishSignal(signal);
-    const replay = coordinator.publishSignal({ ...signal, side: signal.side === "BUY" ? "SELL" : "BUY", quantity: 999 });
-    assert.deepEqual(replay, first, `replay must be immutable for ${signal.masterSignalId}`);
+  const operations = signals.flatMap((signal) => [
+    Promise.resolve().then(() => coordinator.publishSignal(signal)),
+    Promise.resolve().then(() => coordinator.publishSignal({
+      ...signal,
+      side: signal.side === "BUY" ? "SELL" : "BUY",
+      quantity: 999,
+      price: 1
+    }))
+  ]);
+
+  const results = await Promise.all(operations);
+  for (let i = 0; i < signals.length; i += 1) {
+    const first = results[i * 2];
+    const replay = results[i * 2 + 1];
+    assert.deepEqual(replay, first, `concurrent replay must be immutable for ${signals[i].masterSignalId}`);
   }
 
-  assert.equal(coordinator.exportState().signals.length, signals.length);
+  assert.equal(coordinator.exportState().signals.length, 200, "STRESS-200 must persist 200 unique master signals");
   for (const followerId of followers) {
     const accepted = pipelines[followerId].exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED");
-    assert.equal(accepted.length, signals.length, `${followerId} must have one exchange order per distinct master signal`);
-    assert.equal(pipelines[followerId].execution.orders.size, signals.length, `${followerId} must have one execution per distinct master signal`);
+    assert.equal(accepted.length, 200, `${followerId} must have exactly 200 exchange orders`);
+    assert.equal(pipelines[followerId].execution.orders.size, 200, `${followerId} must have exactly 200 executions`);
   }
 
   const audit = coordinator.getAuditLog();
-  assert.equal(audit.filter((e) => e.type === "MASTER_SIGNAL_PROCESSED").length, signals.length);
-  assert.equal(audit.filter((e) => e.type === "FOLLOWER_SIGNAL_RESULT").length, signals.length * followers.length);
+  assert.equal(audit.filter((e) => e.type === "MASTER_SIGNAL_PROCESSED").length, 200);
+  assert.equal(audit.filter((e) => e.type === "FOLLOWER_SIGNAL_RESULT").length, 400);
+
+  console.log("STRESS-200: 200 concurrent master intents x 2 followers = 400 follower executions; 0 duplicates; 0 lost signals");
 }
 
 console.log("master-follower concurrency torture tests: all passed");
