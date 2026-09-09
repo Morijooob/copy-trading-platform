@@ -38,7 +38,7 @@ export class RiskEngine {
     const checks = [
       ["KILL_SWITCH", !this.killSwitch],
       ["ORDER_NOTIONAL", notional <= this.limits.maxOrderNotional],
-      ["DAILY_LOSS", realizedLoss <= this.limits.maxDailyLoss],
+      ["DAILY_LOSS", realizedLoss < this.limits.maxDailyLoss],
       ["MAX_EXPOSURE", currentExposure + notional <= this.limits.maxExposure]
     ];
     const failed = checks.filter(([, passed]) => !passed).map(([name]) => name);
