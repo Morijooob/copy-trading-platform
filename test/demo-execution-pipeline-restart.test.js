@@ -13,12 +13,11 @@ function makeComponents({ scenarios = {}, exchangeState = null, riskState = null
   return { risk, exchange, execution, pipeline };
 }
 
-// Crash after exchange acceptance: restart must reconcile the accepted order, never submit a duplicate.
 {
-  const first = makeComponents({ scenarios: { crash: "CRASH" } });
+  const first = makeComponents({ scenarios: { "restart-crash": "CRASH" } });
   const submitted = first.pipeline.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 2, price: 100, clientOrderId: "restart-crash" });
   assert.equal(submitted.status, "UNKNOWN");
-  assert.equal(first.exchange.getAuditLog().filter((e) => e.type === "ORDER_SUBMITTED").length, 1);
+  assert.equal(first.exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, 1);
 
   const state = first.pipeline.exportState();
   const second = makeComponents({ exchangeState: first.exchange.exportState(), riskState: state.risk, executionState: state.execution, pipelineState: state });
@@ -28,16 +27,15 @@ function makeComponents({ scenarios = {}, exchangeState = null, riskState = null
   assert.equal(recovered[0].order.status, "FILLED");
   assert.equal(second.risk.exposure, 200);
   assert.equal(second.risk.reservedExposure, 0);
-  assert.equal(second.exchange.getAuditLog().filter((e) => e.type === "ORDER_SUBMITTED").length, 1);
+  assert.equal(second.exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, 1);
 
   const replay = second.pipeline.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 2, price: 100, clientOrderId: "restart-crash" });
   assert.equal(replay.order.exchangeOrderId, recovered[0].order.exchangeOrderId);
-  assert.equal(second.exchange.getAuditLog().filter((e) => e.type === "ORDER_SUBMITTED").length, 1);
+  assert.equal(second.exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, 1);
 }
 
-// Timeout with a late fill: restart must preserve the UNKNOWN state, reconcile the fill, and commit risk once.
 {
-  const first = makeComponents({ scenarios: { late: "TIMEOUT" } });
+  const first = makeComponents({ scenarios: { "restart-timeout": "TIMEOUT" } });
   const submitted = first.pipeline.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 10, price: 100, clientOrderId: "restart-timeout" });
   assert.equal(submitted.status, "UNKNOWN");
   const exchangeOrder = first.exchange.reconcile("restart-timeout");
@@ -51,33 +49,31 @@ function makeComponents({ scenarios = {}, exchangeState = null, riskState = null
   assert.equal(recovered[0].order.filledQty, 0);
   assert.equal(second.risk.exposure, 1000);
   assert.equal(second.risk.reservedExposure, 0);
-  assert.equal(second.exchange.getAuditLog().filter((e) => e.type === "ORDER_SUBMITTED").length, 1);
+  assert.equal(second.exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, 1);
 }
 
-// Network disconnect before submission: restart must safely retry only after explicit not-found reconciliation.
 {
   const first = makeComponents();
   first.exchange.disconnect();
   const submitted = first.pipeline.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 3, price: 100, clientOrderId: "restart-disconnect" });
   assert.equal(submitted.status, "UNKNOWN");
-  assert.equal(first.exchange.getAuditLog().filter((e) => e.type === "ORDER_SUBMITTED").length, 0);
+  assert.equal(first.exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, 0);
 
   const state = first.pipeline.exportState();
   first.exchange.reconnect();
   const second = makeComponents({ exchangeState: first.exchange.exportState(), riskState: state.risk, executionState: state.execution, pipelineState: state });
   const recovered = second.pipeline.recoverAfterRestart();
   assert.equal(recovered[0].status, "UNKNOWN");
-  assert.equal(second.exchange.getAuditLog().filter((e) => e.type === "ORDER_SUBMITTED").length, 0);
+  assert.equal(second.exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, 0);
 
   const retried = second.pipeline.recover("restart-disconnect");
   assert.equal(retried.status, "CONFIRMED");
   assert.equal(retried.order.status, "FILLED");
   assert.equal(second.risk.exposure, 300);
   assert.equal(second.risk.reservedExposure, 0);
-  assert.equal(second.exchange.getAuditLog().filter((e) => e.type === "ORDER_SUBMITTED").length, 1);
+  assert.equal(second.exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, 1);
 }
 
-// One follower can be confirmed while another is unresolved; recovery is independent and never rolls back the first.
 {
   const a = makeComponents({ scenarios: { f1: "CRASH" } });
   const b = makeComponents();
@@ -94,13 +90,13 @@ function makeComponents({ scenarios = {}, exchangeState = null, riskState = null
   assert.equal(ar.pipeline.recoverAfterRestart()[0].order.status, "FILLED");
   assert.equal(br.pipeline.recoverAfterRestart().length, 0);
   assert.equal(br.risk.exposure, 100);
-  assert.equal(ar.exchange.getAuditLog().filter((e) => e.type === "ORDER_SUBMITTED").length, 1);
-  assert.equal(br.exchange.getAuditLog().filter((e) => e.type === "ORDER_SUBMITTED").length, 1);
+  assert.equal(ar.exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, 1);
+  assert.equal(br.exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, 1);
 }
 
-// Persisted risk state must reject tampering with reserved exposure.
 {
   const first = makeComponents();
+  first.exchange.disconnect();
   first.pipeline.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 2, price: 100, clientOrderId: "tamper" });
   const state = first.pipeline.exportState();
   state.risk.reservedExposure = 0;
