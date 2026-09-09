@@ -1,0 +1,36 @@
+name: Gate 6 Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'package.json'
+      - '.github/workflows/gate6.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate6-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate6:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify Gate 6 files
+        run: test -f test/gate6.test.js && test -f src/risk-engine.js && test -f src/risk-controlled-execution.js
+      - name: Run Gate 6 tests
+        run: node test/gate6.test.js
+      - name: Run full regression suite
+        run: npm test
