@@ -6,7 +6,6 @@ export class ExecutionEngine {
     this.nextId = 1;
     this.nextEventId = 1;
     this.auditLog = [];
-
     if (state !== null) this.restore(state);
   }
 
@@ -14,27 +13,17 @@ export class ExecutionEngine {
     if (!symbol || !side || !Number.isFinite(quantity) || quantity <= 0) throw new Error("invalid order");
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error("invalid timeout");
     if (clientOrderId !== null && (!clientOrderId || typeof clientOrderId !== "string")) throw new Error("invalid client order id");
-
     if (clientOrderId !== null && this.ordersByClientId.has(clientOrderId)) {
       const existing = this.orders.get(this.ordersByClientId.get(clientOrderId));
-      if (existing.symbol !== symbol || existing.side !== side || existing.requestedQty !== quantity || existing.timeoutMs !== timeoutMs) {
-        throw new Error("conflicting client order id");
-      }
+      if (existing.symbol !== symbol || existing.side !== side || existing.requestedQty !== quantity || existing.timeoutMs !== timeoutMs) throw new Error("conflicting client order id");
       this.assertEventSequence(existing, eventSequence);
       this.record(existing.id, "DUPLICATE_ORDER", { clientOrderId }, eventSequence);
       this.persist();
       return this.snapshot(existing);
     }
-
     if (eventSequence !== null && (!Number.isInteger(eventSequence) || eventSequence <= 0)) throw new Error("invalid event sequence");
-
     const id = String(this.nextId++);
-    const order = {
-      id, clientOrderId, symbol, side, requestedQty: quantity, filledQty: 0,
-      status: "PENDING", timeoutMs, elapsedMs: 0, recovered: false,
-      failureState: null, exchangeOrderId: null, retryCount: 0,
-      lastEventSequence: null, processedFillIds: new Map()
-    };
+    const order = { id, clientOrderId, symbol, side, requestedQty: quantity, filledQty: 0, status: "PENDING", timeoutMs, elapsedMs: 0, recovered: false, failureState: null, exchangeOrderId: null, retryCount: 0, lastEventSequence: null, processedFillIds: new Map() };
     this.orders.set(id, order);
     if (clientOrderId !== null) this.ordersByClientId.set(clientOrderId, id);
     this.record(id, "ORDER_CREATED", { symbol, side, quantity, timeoutMs, clientOrderId }, eventSequence);
@@ -66,8 +55,7 @@ export class ExecutionEngine {
   reconcileExchangeState(id, exchangeState, eventSequence = null) {
     const order = this.require(id);
     this.assertEventSequence(order, eventSequence);
-    if (!exchangeState || typeof exchangeState !== "object") throw new Error("invalid exchange state");
-
+    if (!exchangeState || typeof exchangeState !== "object" || typeof exchangeState.found !== "boolean") throw new Error("exchange reconciliation must explicitly resolve found=true or found=false");
     if (exchangeState.found === true) {
       if (typeof exchangeState.exchangeOrderId !== "string" || !exchangeState.exchangeOrderId) throw new Error("invalid exchange order id");
       if (!Number.isFinite(exchangeState.filledQty) || exchangeState.filledQty < 0 || exchangeState.filledQty > order.requestedQty) throw new Error("invalid reconciled fill");
@@ -77,13 +65,11 @@ export class ExecutionEngine {
       order.failureState = null;
       order.recovered = true;
       this.record(id, "RECONCILED_FOUND", { exchangeOrderId: order.exchangeOrderId, filledQty: order.filledQty, status: order.status }, eventSequence);
-    } else if (exchangeState.found === false) {
+    } else {
       order.status = "PENDING";
       order.failureState = null;
       order.recovered = true;
       this.record(id, "RECONCILED_NOT_FOUND", {}, eventSequence);
-    } else {
-      throw new Error("exchange reconciliation must explicitly return found=true or found=false");
     }
     this.persist();
     return this.snapshot(order);
@@ -105,7 +91,7 @@ export class ExecutionEngine {
     }
     order.filledQty = Math.min(order.requestedQty, order.filledQty + quantity);
     order.status = order.filledQty === order.requestedQty ? "FILLED" : "PARTIAL";
-    order.failureState = null;
+    // Keep failureState: a late fill must not erase evidence that a crash/timeout happened.
     this.record(id, "EXCHANGE_FILL", { fillId, quantity, status: order.status }, eventSequence);
     this.persist();
     return this.snapshot(order);
@@ -145,19 +131,10 @@ export class ExecutionEngine {
     return this.snapshot(order);
   }
 
-  getRecoverableOrders() {
-    return [...this.orders.values()]
-      .filter((order) => !["FILLED"].includes(order.status))
-      .map((order) => this.snapshot(order));
-  }
+  getRecoverableOrders() { return [...this.orders.values()].filter((order) => order.status !== "FILLED").map((order) => this.snapshot(order)); }
 
   exportState() {
-    return {
-      nextOrderId: this.nextId,
-      nextEventId: this.nextEventId,
-      orders: [...this.orders.values()].map((order) => ({ ...this.snapshot(order), processedFillIds: [...order.processedFillIds.entries()] })),
-      auditLog: this.getAuditLog()
-    };
+    return { nextOrderId: this.nextId, nextEventId: this.nextEventId, orders: [...this.orders.values()].map((order) => ({ ...this.snapshot(order), processedFillIds: [...order.processedFillIds.entries()] })), auditLog: this.getAuditLog() };
   }
 
   restore(state) {
@@ -172,37 +149,19 @@ export class ExecutionEngine {
     }
   }
 
-  getAuditLog(id = null) {
-    const events = id === null ? this.auditLog : this.auditLog.filter((event) => event.orderId === id);
-    return structuredClone(events);
-  }
-
+  getAuditLog(id = null) { return structuredClone(id === null ? this.auditLog : this.auditLog.filter((event) => event.orderId === id)); }
   assertEventSequence(order, eventSequence) {
     if (eventSequence === null) return;
     if (!Number.isInteger(eventSequence) || eventSequence <= 0) throw new Error("invalid event sequence");
     if (order.lastEventSequence !== null && eventSequence <= order.lastEventSequence) throw new Error("out-of-order event");
   }
-
   record(orderId, type, payload, eventSequence = null) {
     const order = this.orders.get(orderId);
     this.assertEventSequence(order, eventSequence);
     if (order && eventSequence !== null) order.lastEventSequence = eventSequence;
     this.auditLog.push({ eventId: String(this.nextEventId++), orderId, type, payload: structuredClone(payload), eventSequence, recordedAt: this.auditLog.length });
   }
-
-  persist() {
-    if (this.persistence) this.persistence.save(this.exportState());
-  }
-
-  require(id) {
-    const order = this.orders.get(id);
-    if (!order) throw new Error(`unknown order: ${id}`);
-    return order;
-  }
-
-  snapshot(order) {
-    const snapshot = structuredClone(order);
-    delete snapshot.processedFillIds;
-    return snapshot;
-  }
+  persist() { if (this.persistence) this.persistence.save(this.exportState()); }
+  require(id) { const order = this.orders.get(id); if (!order) throw new Error(`unknown order: ${id}`); return order; }
+  snapshot(order) { const snapshot = structuredClone(order); delete snapshot.processedFillIds; return snapshot; }
 }
