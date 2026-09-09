@@ -34,13 +34,14 @@ export class PaperExchange {
     const record = this.orders.get(clientOrderId);
     if (!record) throw new Error('order not found');
     if (record.status === 'FILLED' || record.status === 'CANCELED' || record.status === 'REJECTED') {
-      return this.snapshot(record);
+      throw new Error(`cannot fill terminal order: ${record.status}`);
     }
     if (!Number.isFinite(quantity) || quantity <= 0) throw new Error('invalid fill quantity');
     if (!Number.isFinite(price) || price <= 0) throw new Error('invalid fill price');
 
     const total = record.filledQuantity + quantity;
     const requested = Number(record.request.quantity);
+    if (!Number.isFinite(requested) || requested <= 0) throw new Error('invalid requested quantity');
     if (total > requested) throw new Error('fill exceeds requested quantity');
 
     const previousValue = record.filledQuantity * (record.averageFillPrice ?? price);
