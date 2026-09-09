@@ -23,6 +23,18 @@ const order = (clientOrderId, quantity = 10) => ({ clientOrderId, symbol: "BTCUS
 }
 
 {
+  const ex = new DemoExchangeSimulator({ scenarios: { late: "TIMEOUT_PARTIAL" } });
+  assert.throws(() => ex.submitOrder(order("late")), /simulated after acceptance/);
+  const reconciliation = ex.reconcile("late");
+  assert.equal(reconciliation.confirmed, true);
+  assert.equal(reconciliation.status, "PARTIAL");
+  assert.equal(reconciliation.filledQty, 5);
+  const done = ex.completePartialFill("late");
+  assert.equal(done.status, "FILLED");
+  assert.equal(done.filledQty, 10);
+}
+
+{
   const ex = new DemoExchangeSimulator({ marketPrice: 100, slippageBps: 50 });
   const result = ex.submitOrder(order("slippage", 2));
   assert.equal(result.averagePrice, 100.5);
