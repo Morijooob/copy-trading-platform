@@ -2,7 +2,9 @@ name: Gate 1 Tests
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - feature/sandbox-exchange-adapter
   pull_request:
     branches: [main]
   workflow_dispatch:

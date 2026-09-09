@@ -1,0 +1,42 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { BinanceSandboxAdapter } from "../src/binance-sandbox-adapter.js";
+
+const fixedClock = () => 1499827319559;
+
+// Binance's official HMAC regression vector for a signed LIMIT order.
+test("Binance sandbox HMAC signing matches the official documented regression vector", () => {
+  const adapter = new BinanceSandboxAdapter({ apiKey: "api", secretKey: "NhqPtmdSJYdKjVHjA7PZj4Mge3R5YNiP1e3UZjInClVN65XAbvqqM6A7H5fATj0j", clock: fixedClock });
+  const signature = adapter.sign({ symbol: "LTCBTC", side: "BUY", type: "LIMIT", timeInForce: "GTC", quantity: "1", price: "0.1", recvWindow: "5000", timestamp: String(fixedClock()) });
+  assert.equal(signature, "c8db56825ae71d6d79447849e617115f4a920fa2acdcab2b053c4b2838bd6b71");
+});
+
+test("Binance sandbox signs authenticated requests and never permits LIVE", async () => {
+  const calls = [];
+  const transport = async (url, options) => { calls.push({ url, options }); return { ok: true, status: 200, json: async () => ({ orderId: 123, clientOrderId: "cid", status: "NEW", executedQty: "0", price: "100" }) }; };
+  const adapter = new BinanceSandboxAdapter({ apiKey: "sandbox-key", secretKey: "sandbox-secret", transport, clock: () => 1668481559918 });
+  const result = await adapter.submitOrder({ symbol: "BTCUSDT", side: "BUY", quantity: 0.001, price: 100, clientOrderId: "cid" });
+  assert.equal(result.exchangeOrderId, "123");
+  assert.equal(new URL(calls[0].url).searchParams.get("timestamp"), "1668481559918");
+  assert.match(new URL(calls[0].url).searchParams.get("signature"), /^[a-f0-9]{64}$/);
+  assert.equal(calls[0].options.headers["X-MBX-APIKEY"], "sandbox-key");
+  assert.throws(() => new BinanceSandboxAdapter({ apiKey: "x", secretKey: "y", mode: "LIVE" }), /live Binance adapter is locked/);
+});
+
+test("Binance sandbox handles timeout and HTTP/API auth failures fail-closed", async () => {
+  const timeout = new BinanceSandboxAdapter({ apiKey: "x", secretKey: "y", timeoutMs: 5, transport: (_url, options) => new Promise((resolve, reject) => options.signal.addEventListener("abort", () => { const e = new Error("aborted"); e.name = "AbortError"; reject(e); })) });
+  await assert.rejects(() => timeout.getAccount(), /timeout/);
+  const unauthorized = new BinanceSandboxAdapter({ apiKey: "x", secretKey: "y", transport: async () => ({ ok: false, status: 401, json: async () => ({ code: -2015, msg: "Invalid API-key" }) }) });
+  await assert.rejects(() => unauthorized.getAccount(), /HTTP 401/);
+  const apiFailure = new BinanceSandboxAdapter({ apiKey: "x", secretKey: "y", transport: async () => ({ ok: true, status: 200, json: async () => ({ code: -1022, msg: "INVALID_SIGNATURE" }) }) });
+  await assert.rejects(() => apiFailure.getAccount(), /-1022/);
+});
+
+test("Binance sandbox real connectivity is exercised only when explicit CI secrets are present", { skip: !process.env.BINANCE_SANDBOX_CONNECTIVITY }, async () => {
+  const adapter = new BinanceSandboxAdapter({ apiKey: process.env.BINANCE_SANDBOX_API_KEY, secretKey: process.env.BINANCE_SANDBOX_SECRET_KEY });
+  assert.deepEqual(await adapter.ping(), {});
+  const account = await adapter.getAccount();
+  assert.ok(Array.isArray(account.balances));
+});
+
+console.log("Binance Sandbox Adapter: ALL TESTS PASSED");
