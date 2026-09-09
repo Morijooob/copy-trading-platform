@@ -35,7 +35,7 @@ export class DemoExchangeSimulator {
     this.record("ORDER_ACCEPTED", { clientOrderId, exchangeOrderId, scenario });
     this.applyScenario(order);
 
-    if (scenario === "TIMEOUT" || scenario === "CRASH" || scenario === "NETWORK_FAILURE") {
+    if (["TIMEOUT", "CRASH", "NETWORK_FAILURE", "TIMEOUT_PARTIAL"].includes(scenario)) {
       throw new Error(`${scenario.toLowerCase()} simulated after acceptance`);
     }
     return this.snapshot(order);
@@ -101,6 +101,10 @@ export class DemoExchangeSimulator {
 
   applyScenario(order) {
     if (order.scenario === "TIMEOUT" || order.scenario === "CRASH" || order.scenario === "NETWORK_FAILURE") return;
+    if (order.scenario === "TIMEOUT_PARTIAL") {
+      this.fill(order, order.requestedQty / 2);
+      return;
+    }
     if (order.scenario === "PARTIAL_FILL") {
       this.fill(order, order.requestedQty / 2);
       return;
