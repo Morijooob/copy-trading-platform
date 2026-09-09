@@ -25,11 +25,9 @@ function makePipeline(id) {
 const pipelines = Object.fromEntries(followers.map((id) => [id, makePipeline(id)]));
 const coordinator = new MasterFollowerCoordinator({ capacity: 2 });
 
-coordinator.joinFollower("F1");
-coordinator.joinFollower("F2");
-coordinator.joinFollower("F3");
-coordinator.attachPromotedFollower("F1", pipelines.F1.pipeline);
-coordinator.attachPromotedFollower("F2", pipelines.F2.pipeline);
+for (const followerId of followers) {
+  coordinator.joinFollower({ followerId, pipeline: pipelines[followerId].pipeline });
+}
 
 // First wave: F1/F2 are active; F3 is queued and must not execute historical signals.
 for (let i = 1; i <= TOTAL; i += 1) {
@@ -62,11 +60,11 @@ assert.equal(pipelines.F3.exchange.getAcceptedOrders().length, 0);
 
 // Disconnect F1 and promote F3. Promotion must not replay historical signals.
 coordinator.leaveFollower("F1");
-coordinator.attachPromotedFollower("F3", pipelines.F3.pipeline);
+coordinator.attachPromotedFollower({ followerId: "F3", pipeline: pipelines.F3.pipeline });
 
 const stateAfterPromotion = coordinator.exportState();
-assert.deepEqual(stateAfterPromotion.active.map((entry) => entry.followerId), ["F2", "F3"]);
-assert.equal(stateAfterPromotion.queue.length, 0);
+assert.deepEqual(stateAfterPromotion.queue.active.map((entry) => entry.userId), ["F2", "F3"]);
+assert.equal(stateAfterPromotion.queue.waiting.length, 0);
 assert.equal(pipelines.F3.pipeline.execution.orders.size, 0);
 assert.equal(pipelines.F3.exchange.getAcceptedOrders().length, 0);
 
