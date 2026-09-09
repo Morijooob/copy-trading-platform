@@ -30,8 +30,9 @@ const TOTAL = 1000;
     coordinator.joinFollower({ followerId, pipeline: pipelines[followerId].pipeline });
   }
 
-  assert.deepEqual(coordinator.statusResponse().active.map((x) => x.followerId), ACTIVE);
-  assert.equal(coordinator.statusResponse().queue.length, QUEUED.length);
+  const initialQueue = coordinator.exportState().queue;
+  assert.deepEqual(initialQueue.active.map((x) => x.userId), ACTIVE);
+  assert.equal(initialQueue.waiting.length, QUEUED.length);
 
   const signals = Array.from({ length: TOTAL }, (_, i) => ({
     masterSignalId: `HEAVY-${String(i).padStart(4, "0")}`,
@@ -70,9 +71,9 @@ const TOTAL = 1000;
   // Exercise capacity promotion after the heavy storm without losing queue ordering.
   coordinator.leaveFollower("F1");
   coordinator.attachPromotedFollower({ followerId: "Q1", pipeline: pipelines.Q1.pipeline });
-  const status = coordinator.statusResponse();
-  assert.deepEqual(status.active.map((x) => x.followerId), ["F2", "Q1"]);
-  assert.equal(status.queue.length, QUEUED.length - 1);
+  const status = coordinator.exportState().queue;
+  assert.deepEqual(status.active.map((x) => x.userId), ["F2", "Q1"]);
+  assert.equal(status.waiting.length, QUEUED.length - 1);
 
   console.log(`HEAVY-STRESS: ${TOTAL} concurrent master intents x ${ACTIVE.length} active followers = ${TOTAL * ACTIVE.length} executions; ${QUEUED.length} queued; 0 duplicates; 0 lost signals`);
 }
