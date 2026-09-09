@@ -34,3 +34,5 @@ jobs:
         run: node test/gate5.test.js
       - name: Run full regression suite
         run: npm test
+
+# Gate 5 trigger verification: keep this workflow self-triggering on main changes.
