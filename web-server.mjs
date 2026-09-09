@@ -1,5 +1,6 @@
 import http from 'node:http';
-import { readFile, readFileSync, mkdirSync, writeFileSync, renameSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { readFileSync, mkdirSync, writeFileSync, renameSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { PaperExchange } from './src/paper-exchange.js';
