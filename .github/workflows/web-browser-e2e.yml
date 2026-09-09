@@ -4,10 +4,15 @@ on:
   pull_request:
   push:
     branches: [feature/sandbox-exchange-adapter]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   browser-e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
