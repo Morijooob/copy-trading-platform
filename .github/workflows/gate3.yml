@@ -1,13 +1,6 @@
 name: Gate 3 Tests
 
-on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'test/**'
-      - '.github/workflows/gate3.yml'
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 permissions:
   contents: read
