@@ -45,36 +45,42 @@ test('audit log is append-only and hash-chain integrity detects tampering', () =
   assert.throws(() => new SecurityControl({ state }), /integrity failure/);
 });
 
-test('audit detects deletion, reordering, and injection', () => {
+test('audit detects deletion, reordering, injection, and forged final hash', () => {
   const security = new SecurityControl({ actorId: 'ops', role: 'admin' });
   security.auditEvent('A', { n: 1 });
   security.auditEvent('B', { n: 2 });
   const deleted = security.exportState(); deleted.audit.pop();
   const reordered = security.exportState(); [reordered.audit[0], reordered.audit[1]] = [reordered.audit[1], reordered.audit[0]];
   const injected = security.exportState(); injected.audit.push({ eventId: '3', type: 'FORGED', actorId: 'attacker', payload: {}, previousHash: injected.lastHash, hash: 'bad' }); injected.sequence = 3;
+  const forgedHash = security.exportState(); forgedHash.lastHash = 'forged';
   assert.throws(() => new SecurityControl({ state: deleted }), /sequence mismatch/);
   assert.throws(() => new SecurityControl({ state: reordered }), /integrity failure/);
   assert.throws(() => new SecurityControl({ state: injected }), /integrity failure/);
+  assert.throws(() => new SecurityControl({ state: forgedHash }), /integrity failure/);
 });
 
-test('sensitive audit fields are redacted recursively', () => {
+test('sensitive audit fields are redacted recursively including arrays', () => {
   const security = new SecurityControl({ actorId: 'ops', role: 'admin' });
-  security.auditEvent('CREDENTIAL_TEST', { apiKey: 'SECRET', nested: { password: 'PW', token: 'TOK', safe: 'ok' }, authorization: 'Bearer abc' });
+  security.auditEvent('CREDENTIAL_TEST', { apiKey: 'SECRET', nested: { password: 'PW', token: 'TOK', safe: 'ok' }, authorization: 'Bearer abc', keys: [{ secret: 'S1' }, { apiKey: 'S2' }] });
   const payload = security.getAuditLog().at(-1).payload;
   assert.equal(payload.apiKey, '[REDACTED]');
   assert.equal(payload.nested.password, '[REDACTED]');
   assert.equal(payload.nested.token, '[REDACTED]');
   assert.equal(payload.authorization, '[REDACTED]');
+  assert.equal(payload.keys[0].secret, '[REDACTED]');
+  assert.equal(payload.keys[1].apiKey, '[REDACTED]');
   assert.equal(payload.nested.safe, 'ok');
   assert.equal(JSON.stringify(payload).includes('SECRET'), false);
 });
 
 test('repeated kill switch activation remains safe and auditable', () => {
   const security = new SecurityControl({ actorId: 'ops', role: 'admin' });
-  for (let i = 0; i < 100; i++) security.setKillSwitch(true, `incident-${i}`);
+  for (let i = 0; i < 1000; i++) security.setKillSwitch(true, `incident-${i}`);
   assert.equal(security.killSwitch, true);
   assert.equal(security.verifyAuditIntegrity(), true);
-  assert.equal(security.getAuditLog().length, 200);
+  assert.equal(security.getAuditLog().length, 2000);
+  const restored = new SecurityControl({ state: security.exportState() });
+  assert.equal(restored.verifyAuditIntegrity(), true);
 });
 
 test('risk engine kill switch remains fail closed at risk layer', () => {
