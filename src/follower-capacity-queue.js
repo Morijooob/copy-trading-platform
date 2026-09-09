@@ -17,7 +17,7 @@ export class FollowerCapacityQueue {
     if (waiting) return structuredClone(waiting);
 
     if (this.active.size < this.capacity) {
-      const entry = { userId, status: "ACTIVE", slot: this.active.size + 1 };
+      const entry = { userId, status: "ACTIVE", slot: this.nextAvailableSlot() };
       this.active.set(userId, entry);
       return structuredClone(entry);
     }
@@ -48,9 +48,17 @@ export class FollowerCapacityQueue {
 
     const [userId, waiting] = this.waiting.entries().next().value;
     this.waiting.delete(userId);
-    const entry = { userId, status: "ACTIVE", slot: this.active.size + 1, queueId: waiting.queueId };
+    const entry = { userId, status: "ACTIVE", slot: this.nextAvailableSlot(), queueId: waiting.queueId };
     this.active.set(userId, entry);
     return structuredClone(entry);
+  }
+
+  nextAvailableSlot() {
+    const used = new Set([...this.active.values()].map((entry) => entry.slot));
+    for (let slot = 1; slot <= this.capacity; slot += 1) {
+      if (!used.has(slot)) return slot;
+    }
+    throw new Error("no follower capacity slot available");
   }
 
   getStatus(userId) {
@@ -80,11 +88,13 @@ export class FollowerCapacityQueue {
 
     const active = new Map();
     const waiting = new Map();
+    const slots = new Set();
     for (const entry of snapshot.active) {
-      if (!entry || typeof entry.userId !== "string" || entry.status !== "ACTIVE" || !Number.isInteger(entry.slot)) {
+      if (!entry || typeof entry.userId !== "string" || entry.status !== "ACTIVE" || !Number.isInteger(entry.slot) || entry.slot < 1 || entry.slot > this.capacity) {
         throw new Error("invalid active follower entry");
       }
-      if (active.has(entry.userId) || waiting.has(entry.userId)) throw new Error("duplicate follower in queue snapshot");
+      if (active.has(entry.userId) || waiting.has(entry.userId) || slots.has(entry.slot)) throw new Error("duplicate follower or slot in queue snapshot");
+      slots.add(entry.slot);
       active.set(entry.userId, { userId: entry.userId, status: "ACTIVE", slot: entry.slot });
     }
     for (const entry of snapshot.waiting) {
