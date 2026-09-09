@@ -92,6 +92,7 @@ test('two users remain isolated when copying the same master', async () => {
       { phone: '0935' + Math.floor(1000000 + Math.random() * 8999999), name: 'User B' }
     ];
     const password = 'StrongPass123!';
+    const accounts = [];
     const tokens = [];
 
     for (const user of users) {
@@ -100,6 +101,7 @@ test('two users remain isolated when copying the same master', async () => {
         body: { ...user, password }
       });
       assert.equal(register.response.status, 201);
+      accounts.push(register.payload.account);
       const login = await request(base, '/api/auth/login', {
         method: 'POST',
         body: { phone: user.phone, password }
@@ -127,7 +129,8 @@ test('two users remain isolated when copying the same master', async () => {
     const finalSecond = await request(base, '/api/dashboard', { token: tokens[1] });
     assert.equal(finalFirst.payload.following.length, 1);
     assert.equal(finalSecond.payload.following.length, 1);
-    assert.equal(finalFirst.payload.following[0].followerId, users[0].phone.replace(/^0/, '98'));
+    assert.equal(finalFirst.payload.following[0].followerId, accounts[0].userId);
+    assert.equal(finalSecond.payload.following[0].followerId, accounts[1].userId);
     assert.notEqual(finalFirst.payload.following[0].followerId, finalSecond.payload.following[0].followerId);
   });
 });
