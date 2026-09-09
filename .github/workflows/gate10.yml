@@ -1,0 +1,42 @@
+name: Gate 10 Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'package.json'
+      - '.github/workflows/gate10.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate10-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate10:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify Gate 10 files
+        run: |
+          test -f src/security-control.js
+          test -f src/security-controlled-execution.js
+          test -f src/persistent-network-resilience.js
+          test -f src/exchange-order-state-machine.js
+          test -f src/multi-account-copy-execution.js
+          test -f test/gate10.test.js
+      - name: Run Gate 10 full-system torture tests
+        run: node test/gate10.test.js
+      - name: Run full regression suite
+        run: npm test
