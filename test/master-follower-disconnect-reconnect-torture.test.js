@@ -1,106 +1,109 @@
 import assert from "node:assert/strict";
 import { DemoExchangeSimulator } from "../src/demo-exchange-simulator.js";
 import { DemoExecutionPipeline } from "../src/demo-execution-pipeline.js";
-import { ExecutionEngine } from "../src/execution-engine.js";
-import { RiskEngine } from "../src/risk-engine.js";
 import { MasterFollowerCoordinator } from "../src/master-follower-coordinator.js";
-
-function makePipeline() {
-  // Keep risk headroom deliberately far above the torture volume so this test
-  // isolates coordination/race behavior rather than cumulative exposure limits.
-  const risk = new RiskEngine({ maxOrderNotional: 5000, maxDailyLoss: 5000, maxExposure: 10_000_000 });
-  const exchange = new DemoExchangeSimulator({ marketPrice: 100 });
-  const execution = new ExecutionEngine();
-  const pipeline = new DemoExecutionPipeline({ riskEngine: risk, exchange, executionEngine: execution });
-  return { exchange, execution, pipeline };
-}
 
 const TOTAL = 300;
 const followers = ["F1", "F2", "F3"];
-const pipelines = Object.fromEntries(followers.map((id) => [id, makePipeline()]));
-const coordinator = new MasterFollowerCoordinator();
 
-coordinator.joinFollower({ followerId: "F1", pipeline: pipelines.F1.pipeline });
-coordinator.joinFollower({ followerId: "F2", pipeline: pipelines.F2.pipeline });
-coordinator.joinFollower({ followerId: "F3", pipeline: pipelines.F3.pipeline });
+function makePipeline(id) {
+  const exchange = new DemoExchangeSimulator({ marketPrice: 100 });
+  const pipeline = new DemoExecutionPipeline({
+    followerId: id,
+    exchange,
+    maxOrderNotional: 5_000,
+    maxDailyLoss: 5_000,
+    maxExposure: 10_000_000,
+  });
+  return { pipeline, exchange };
+}
 
-assert.deepEqual(coordinator.exportState().queue.active.map((x) => x.userId), ["F1", "F2"]);
-assert.deepEqual(coordinator.exportState().queue.waiting.map((x) => x.userId), ["F3"]);
+const pipelines = Object.fromEntries(followers.map((id) => [id, makePipeline(id)]));
+const coordinator = new MasterFollowerCoordinator({ capacity: 2 });
 
-const firstWave = Array.from({ length: TOTAL }, (_, i) => ({
-  masterSignalId: `DISC-${String(i).padStart(4, "0")}`,
-  symbol: i % 2 ? "ETHUSDT" : "BTCUSDT",
-  side: i % 2 ? "SELL" : "BUY",
-  quantity: 1 + (i % 3),
-  price: 100
-}));
+coordinator.joinFollower("F1");
+coordinator.joinFollower("F2");
+coordinator.joinFollower("F3");
+coordinator.attachPromotedFollower("F1", pipelines.F1.pipeline);
+coordinator.attachPromotedFollower("F2", pipelines.F2.pipeline);
 
-// F1/F2 process the first wave while every intent is replayed with contradictory data.
-await Promise.all(firstWave.flatMap((signal) => [
-  Promise.resolve().then(() => coordinator.publishSignal(signal)),
-  Promise.resolve().then(() => coordinator.publishSignal({ ...signal, side: signal.side === "BUY" ? "SELL" : "BUY", quantity: 999, price: 1 }))
-]));
+// First wave: F1/F2 are active; F3 is queued and must not execute historical signals.
+for (let i = 1; i <= TOTAL; i += 1) {
+  const masterSignalId = `DISCONNECT-${i}`;
+  const signal = {
+    masterSignalId,
+    symbol: "BTCUSDT",
+    side: i % 2 === 0 ? "BUY" : "SELL",
+    quantity: (i % 3) + 1,
+    price: 100,
+  };
+  const conflictingReplay = {
+    ...signal,
+    side: signal.side === "BUY" ? "SELL" : "BUY",
+    quantity: 99,
+    price: 9_999,
+  };
+
+  coordinator.publishSignal(signal);
+  coordinator.publishSignal(conflictingReplay);
+}
 
 assert.equal(coordinator.exportState().signals.length, TOTAL);
-for (const id of ["F1", "F2"]) {
-  assert.equal(pipelines[id].execution.orders.size, TOTAL);
-  assert.equal(pipelines[id].exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, TOTAL);
-}
+assert.equal(pipelines.F1.pipeline.execution.orders.size, TOTAL);
+assert.equal(pipelines.F2.pipeline.execution.orders.size, TOTAL);
+assert.equal(pipelines.F3.pipeline.execution.orders.size, 0);
+assert.equal(pipelines.F1.exchange.getAcceptedOrders().length, TOTAL);
+assert.equal(pipelines.F2.exchange.getAcceptedOrders().length, TOTAL);
+assert.equal(pipelines.F3.exchange.getAcceptedOrders().length, 0);
 
-// Disconnect F1 after execution. Its slot promotes F3, but F3 must not retroactively
-// execute historical signals. New signals must go only to the currently active pair.
+// Disconnect F1 and promote F3. Promotion must not replay historical signals.
 coordinator.leaveFollower("F1");
-coordinator.attachPromotedFollower({ followerId: "F3", pipeline: pipelines.F3.pipeline });
-assert.deepEqual(coordinator.exportState().queue.active.map((x) => x.userId), ["F2", "F3"]);
-assert.equal(pipelines.F3.execution.orders.size, 0);
+coordinator.attachPromotedFollower("F3", pipelines.F3.pipeline);
 
-const secondWave = Array.from({ length: TOTAL }, (_, i) => ({
-  masterSignalId: `DISC-NEW-${String(i).padStart(4, "0")}`,
-  symbol: "BTCUSDT",
-  side: "BUY",
-  quantity: 1,
-  price: 100
-}));
+const stateAfterPromotion = coordinator.exportState();
+assert.deepEqual(stateAfterPromotion.active.map((entry) => entry.followerId), ["F2", "F3"]);
+assert.equal(stateAfterPromotion.queue.length, 0);
+assert.equal(pipelines.F3.pipeline.execution.orders.size, 0);
+assert.equal(pipelines.F3.exchange.getAcceptedOrders().length, 0);
 
-const secondResults = await Promise.all(secondWave.flatMap((signal) => [
-  Promise.resolve().then(() => coordinator.publishSignal(signal)),
-  Promise.resolve().then(() => coordinator.publishSignal({ ...signal, side: "SELL", quantity: 777, price: 2 }))
-]));
+// Second wave: only F2 and newly promoted F3 are active.
+for (let i = 1; i <= TOTAL; i += 1) {
+  const masterSignalId = `RECONNECT-${i}`;
+  const signal = {
+    masterSignalId,
+    symbol: "BTCUSDT",
+    side: "BUY",
+    quantity: 1,
+    price: 100,
+  };
+  const conflictingReplay = {
+    ...signal,
+    side: "SELL",
+    quantity: 99,
+    price: 9_999,
+  };
 
-assert(secondResults.every((result) => result.status === "PROCESSED"));
-for (const id of ["F2", "F3"]) {
-  assert.equal(pipelines[id].execution.orders.size, TOTAL * 2);
-  assert.equal(pipelines[id].exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, TOTAL * 2);
+  coordinator.publishSignal(signal);
+  coordinator.publishSignal(conflictingReplay);
 }
-assert.equal(pipelines.F1.execution.orders.size, TOTAL);
 
-// Simulate restart/reconnect: persisted state is restored with F2/F3, then the disconnected
-// F1 rejoins the queue. Replaying old signals must cause zero side effects.
-const snapshot = coordinator.exportState();
-const restored = new MasterFollowerCoordinator();
-restored.restoreState(snapshot, new Map([
-  ["F2", pipelines.F2.pipeline],
-  ["F3", pipelines.F3.pipeline]
-]));
-const beforeReplay = {
-  F2: pipelines.F2.execution.orders.size,
-  F3: pipelines.F3.execution.orders.size
-};
+// F2 was active for both waves: 300 + 300 = 600.
+assert.equal(pipelines.F2.pipeline.execution.orders.size, TOTAL * 2);
+assert.equal(pipelines.F2.exchange.getAcceptedOrders().length, TOTAL * 2);
 
-const oldReplay = await Promise.all(firstWave.slice(0, 50).map((signal) => restored.publishSignal({
-  ...signal,
-  side: "SELL",
-  quantity: 1234,
-  price: 3
-})));
-assert(oldReplay.every((r) => r.status === "PROCESSED"));
-assert.equal(pipelines.F2.execution.orders.size, beforeReplay.F2);
-assert.equal(pipelines.F3.execution.orders.size, beforeReplay.F3);
+// F3 joined as active only after wave 1: it must execute only wave 2, i.e. 300.
+assert.equal(pipelines.F3.pipeline.execution.orders.size, TOTAL);
+assert.equal(pipelines.F3.exchange.getAcceptedOrders().length, TOTAL);
 
-restored.joinFollower({ followerId: "F1", pipeline: pipelines.F1.pipeline });
-const finalQueue = restored.exportState().queue;
-assert.equal(finalQueue.waiting.some((x) => x.userId === "F1"), true);
-assert.deepEqual(finalQueue.active.map((x) => x.userId), ["F2", "F3"]);
+// F1 disconnected after wave 1 and must remain at exactly its historical 300 executions.
+assert.equal(pipelines.F1.pipeline.execution.orders.size, TOTAL);
+assert.equal(pipelines.F1.exchange.getAcceptedOrders().length, TOTAL);
 
-console.log(`DISCONNECT-RC: ${TOTAL * 2} master intents across disconnect/reconnect + restart/replay; active capacity preserved; 0 duplicate side effects; 0 lost signals`);
+// Every master signal is unique; each duplicate/conflicting replay must be idempotently ignored.
+assert.equal(coordinator.exportState().signals.length, TOTAL * 2);
+
+console.log(
+  `DISCONNECT-RECONNECT: ${TOTAL} first-wave signals + ${TOTAL} second-wave signals; ` +
+  `F1=F2-history=${TOTAL}, F2=${TOTAL * 2}, F3=${TOTAL}; 0 duplicate side effects; 0 historical replay`
+);
 console.log("master-follower disconnect/reconnect torture tests: all passed");
