@@ -9,7 +9,7 @@ const password = 'BrowserE2E!2026';
 try {
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'ورود / ثبت‌نام' }).click();
-  await page.getByRole('button', { name: 'ثبت‌نام' }).click();
+  await page.getByRole('button', { name: 'ثبت‌نام', exact: true }).click();
   await page.locator('#authName').fill('Browser E2E');
   await page.locator('#authPhone').fill(phone);
   await page.locator('#authPassword').fill(password);
