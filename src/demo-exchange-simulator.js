@@ -67,6 +67,7 @@ export class DemoExchangeSimulator {
   exportState() {
     return {
       marketPrice: this.marketPrice, latencyMs: this.latencyMs, slippageBps: this.slippageBps,
+      scenarios: structuredClone(this.scenarios),
       nextOrderId: this.nextOrderId, nextFillId: this.nextFillId,
       connected: this.connected, crashed: this.crashed,
       orders: [...this.orders.values()].map((order) => structuredClone(order)),
@@ -81,9 +82,13 @@ export class DemoExchangeSimulator {
     if (!Number.isFinite(state.slippageBps) || state.slippageBps < 0) throw new Error("invalid exchange slippage");
     if (!Number.isInteger(state.nextOrderId) || state.nextOrderId < 1) throw new Error("invalid exchange order counter");
     if (!Number.isInteger(state.nextFillId) || state.nextFillId < 1) throw new Error("invalid exchange fill counter");
+    if (state.scenarios !== undefined && (state.scenarios === null || typeof state.scenarios !== "object" || Array.isArray(state.scenarios))) {
+      throw new Error("invalid exchange scenarios");
+    }
     this.marketPrice = state.marketPrice;
     this.latencyMs = state.latencyMs;
     this.slippageBps = state.slippageBps;
+    this.scenarios = structuredClone(state.scenarios ?? {});
     this.nextOrderId = state.nextOrderId;
     this.nextFillId = state.nextFillId;
     this.connected = Boolean(state.connected);
