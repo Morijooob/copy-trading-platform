@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/sandbox-exchange-adapter
+      - feature/persistence-hardening
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -13,8 +14,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: gate1-${{ github.ref }}
-  cancel-in-progress: true
+  group: gate1-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   gate1:
