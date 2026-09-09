@@ -15,7 +15,7 @@ function riskEngine() {
   };
 }
 
-test("signal -> risk -> copy -> paper exchange -> partial/full fills -> reconciliation -> replay", () => {
+test("signal -> risk -> copy -> paper exchange -> partial/full fills -> duplicate replay -> reconciliation", () => {
   const exchange = new PaperExchange({ latencyMs: 0 });
   const risk = riskEngine();
   const execution = new ExecutionEngine();
@@ -31,29 +31,37 @@ test("signal -> risk -> copy -> paper exchange -> partial/full fills -> reconcil
   assert.equal(risk.exposure, 0);
   assert.equal(risk.reservedExposure, 200);
 
-  const fill = exchange.fillOrder("copy:sig-1:acct-1", 1, 100);
-  const reconciled = copy.onExchangeFill("acct-1", first.results[0].order.id, fill.filledQuantity, 100, 3);
+  const fill1 = exchange.fillOrder("copy:sig-1:acct-1", 1, 100);
+  const reconciled = copy.onExchangeFill("acct-1", first.results[0].order.id, fill1.filledQuantity, 100, 3, { fillId: "fill-1" });
   assert.equal(reconciled.filledQty, 1);
   assert.equal(reconciled.status, "PARTIAL");
   assert.equal(risk.exposure, 100);
   assert.equal(risk.reservedExposure, 100);
 
-  const duplicate = copy.onExchangeFill("acct-1", first.results[0].order.id, 0.5, 100, 4);
-  assert.equal(duplicate.filledQty, 1.5);
+  const duplicate = copy.onExchangeFill("acct-1", first.results[0].order.id, 1, 100, 4, { fillId: "fill-1" });
+  assert.equal(duplicate.duplicate, true);
+  assert.equal(duplicate.filledQty, 1);
+  assert.equal(risk.exposure, 100);
+  assert.equal(risk.reservedExposure, 100);
+
+  const fill2 = exchange.fillOrder("copy:sig-1:acct-1", 0.5, 100);
+  const second = copy.onExchangeFill("acct-1", first.results[0].order.id, 0.5, 100, 5, { fillId: "fill-2" });
+  assert.equal(second.filledQty, 1.5);
   assert.equal(risk.exposure, 150);
   assert.equal(risk.reservedExposure, 50);
 
-  const full = exchange.fillOrder("copy:sig-1:acct-1", 0.5, 101);
-  const final = copy.onExchangeFill("acct-1", first.results[0].order.id, 0.5, 101, 5);
+  const fill3 = exchange.fillOrder("copy:sig-1:acct-1", 0.5, 100);
+  const final = copy.onExchangeFill("acct-1", first.results[0].order.id, 0.5, 100, 6, { fillId: "fill-3" });
   assert.equal(final.filledQty, 2);
   assert.equal(final.status, "FILLED");
-  assert.equal(risk.exposure, 200.5);
+  assert.equal(risk.exposure, 200);
   assert.equal(risk.reservedExposure, 0);
-  assert.equal(full.status, "FILLED");
+  assert.equal(fill2.status, "PARTIALLY_FILLED");
+  assert.equal(fill3.status, "FILLED");
 
-  assert.throws(() => copy.onExchangeFill("acct-1", first.results[0].order.id, 0.1, 101, 6), /missing copy exposure reservation/);
+  assert.throws(() => copy.onExchangeFill("acct-1", first.results[0].order.id, 0.1, 100, 7), /missing copy exposure reservation/);
 
-  const replay = copy.executeCopy({ signalId: "sig-1", symbol: "BTCUSDT", side: "BUY", quantity: 2, price: 100, eventSequence: 7 });
+  const replay = copy.executeCopy({ signalId: "sig-1", symbol: "BTCUSDT", side: "BUY", quantity: 2, price: 100, eventSequence: 8 });
   assert.equal(replay.idempotent, 1);
   assert.equal(exchange.orders.size, 1);
 });
