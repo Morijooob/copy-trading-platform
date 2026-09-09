@@ -1,5 +1,5 @@
 export class RiskEngine {
-  constructor({ maxOrderNotional, maxDailyLoss, maxExposure, killSwitch = false } = {}) {
+  constructor({ maxOrderNotional, maxDailyLoss, maxExposure, killSwitch = false, state = null } = {}) {
     if (!Number.isFinite(maxOrderNotional) || maxOrderNotional <= 0) throw new Error("invalid max order notional");
     if (!Number.isFinite(maxDailyLoss) || maxDailyLoss < 0) throw new Error("invalid max daily loss");
     if (!Number.isFinite(maxExposure) || maxExposure <= 0) throw new Error("invalid max exposure");
@@ -11,6 +11,7 @@ export class RiskEngine {
     this.reservations = new Map();
     this.nextReservationId = 1;
     this.audit = [];
+    if (state !== null) this.restore(state);
   }
 
   setKillSwitch(enabled, reason = "manual") {
@@ -80,6 +81,47 @@ export class RiskEngine {
   getReservation(reservationId) {
     const reservation = this.reservations.get(reservationId);
     return reservation ? structuredClone(reservation) : null;
+  }
+
+  exportState() {
+    return {
+      version: 1,
+      limits: structuredClone(this.limits),
+      killSwitch: this.killSwitch,
+      dailyRealizedLoss: this.dailyRealizedLoss,
+      exposure: this.exposure,
+      reservedExposure: this.reservedExposure,
+      nextReservationId: this.nextReservationId,
+      reservations: [...this.reservations.entries()],
+      audit: this.getAuditLog()
+    };
+  }
+
+  restore(state) {
+    if (!state || state.version !== 1) throw new Error("unsupported risk state version");
+    if (!state.limits || JSON.stringify(state.limits) !== JSON.stringify(this.limits)) throw new Error("risk limits mismatch");
+    if (!Number.isInteger(state.nextReservationId) || state.nextReservationId < 1) throw new Error("invalid next reservation id");
+    if (!Number.isFinite(state.dailyRealizedLoss) || state.dailyRealizedLoss < 0) throw new Error("invalid persisted daily loss");
+    if (!Number.isFinite(state.exposure) || state.exposure < 0) throw new Error("invalid persisted exposure");
+    if (!Number.isFinite(state.reservedExposure) || state.reservedExposure < 0) throw new Error("invalid persisted reserved exposure");
+    if (!Array.isArray(state.reservations) || !Array.isArray(state.audit)) throw new Error("invalid persisted risk state");
+    const reservations = new Map();
+    let reservedTotal = 0;
+    for (const [id, raw] of state.reservations) {
+      if (typeof id !== "string" || !raw || !Number.isFinite(raw.notional) || raw.notional <= 0 || !["RESERVED", "COMMITTED", "RELEASED"].includes(raw.status)) throw new Error("invalid persisted reservation");
+      if (reservations.has(id)) throw new Error("duplicate persisted reservation");
+      reservations.set(id, structuredClone(raw));
+      if (raw.status === "RESERVED") reservedTotal += raw.notional;
+    }
+    if (Math.abs(reservedTotal - state.reservedExposure) > 1e-9) throw new Error("reserved exposure mismatch");
+    if (state.exposure + state.reservedExposure > this.limits.maxExposure) throw new Error("persisted exposure exceeds max exposure");
+    this.killSwitch = Boolean(state.killSwitch);
+    this.dailyRealizedLoss = state.dailyRealizedLoss;
+    this.exposure = state.exposure;
+    this.reservedExposure = state.reservedExposure;
+    this.nextReservationId = state.nextReservationId;
+    this.reservations = reservations;
+    this.audit = structuredClone(state.audit);
   }
 
   getAuditLog() { return structuredClone(this.audit); }
