@@ -24,9 +24,25 @@ import { FollowerCapacityQueue } from "../src/follower-capacity-queue.js";
   assert.equal(released.status, "RELEASED");
   assert.equal(released.promoted.userId, "follower-3");
   assert.equal(released.promoted.status, "ACTIVE");
+  assert.equal(released.promoted.slot, 1);
+  assert.equal(queue.getStatus("follower-2").slot, 2);
   assert.equal(queue.getStatus("follower-4").position, 1);
   assert.equal(queue.snapshot().active.length, 2);
   assert.equal(queue.snapshot().waiting.length, 1);
+  assert.deepEqual(
+    queue.snapshot().active.map((entry) => entry.slot).sort((a, b) => a - b),
+    [1, 2]
+  );
+}
+
+{
+  const queue = new FollowerCapacityQueue({ capacity: 2 });
+  queue.join("follower-1");
+  queue.join("follower-2");
+  queue.join("follower-3");
+  const firstSnapshot = queue.snapshot();
+  firstSnapshot.active[1].slot = firstSnapshot.active[0].slot;
+  assert.throws(() => queue.restore(firstSnapshot), /duplicate follower or slot/);
 }
 
 {
