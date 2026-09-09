@@ -38,6 +38,8 @@ test('multi-account copy stress: 25 accounts × 20 signals with fill replay isol
   const copy = new MultiAccountCopyExecution({ accounts, exchangeAdapter: exchange });
   const summaries = [];
   for (let signal = 0; signal < 20; signal += 1) summaries.push(copy.executeCopy({ signalId: `stress-signal-${signal}`, symbol: signal % 2 ? 'BTCUSDT' : 'ETHUSDT', side: signal % 3 === 0 ? 'SELL' : 'BUY', quantity: 1, price: 100 + signal, timeoutMs: 1000 }));
+  assert.equal(summaries.length, 20);
+  assert.equal(summaries.reduce((total, summary) => total + summary.submitted, 0), 500);
   const results = summaries.flatMap((s) => s.results);
   assert.equal(results.length, 500);
   assert.equal(results.filter((r) => r.status === 'SUBMITTED').length, 500);
