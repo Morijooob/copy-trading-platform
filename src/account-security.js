@@ -2,7 +2,9 @@ import crypto from 'node:crypto';
 
 const PASSWORD_MIN_LENGTH = 12;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24;
-const SCRYPT = { N: 131072, r: 8, p: 1 };
+// Node's default scrypt maxmem is too small for N=131072. Keep the stronger
+// work factor and explicitly provision enough memory for the derivation.
+const SCRYPT = { N: 131072, r: 8, p: 1, maxmem: 256 * 1024 * 1024 };
 
 function normalizePhone(phone) {
   const value = String(phone || '').replace(/[\s-]/g, '');
@@ -24,7 +26,8 @@ function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
 }
 
 function verifyPassword(password, stored) {
-  const derived = crypto.scryptSync(String(password || ''), stored.salt, 64, SCRYPT);
+  const params = stored?.params && typeof stored.params === 'object' ? stored.params : SCRYPT;
+  const derived = crypto.scryptSync(String(password || ''), stored.salt, 64, params);
   const expected = Buffer.from(stored.hash, 'hex');
   return expected.length === derived.length && crypto.timingSafeEqual(expected, derived);
 }
