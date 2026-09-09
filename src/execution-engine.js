@@ -31,6 +31,12 @@ export class ExecutionEngine {
     return this.snapshot(order);
   }
 
+  getOrderByClientId(clientOrderId) {
+    if (clientOrderId === null || typeof clientOrderId !== "string") return null;
+    const id = this.ordersByClientId.get(clientOrderId);
+    return id === undefined ? null : this.snapshot(this.orders.get(id));
+  }
+
   markSubmissionUnknown(id, reason = "UNKNOWN_OUTCOME", eventSequence = null) {
     const order = this.require(id);
     this.assertEventSequence(order, eventSequence);
