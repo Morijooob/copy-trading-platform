@@ -49,6 +49,7 @@ export class ExecutionEngine {
       timeoutMs,
       elapsedMs: 0,
       recovered: false,
+      failureState: null,
       lastEventSequence: null,
       processedFillIds: new Map()
     };
@@ -97,6 +98,7 @@ export class ExecutionEngine {
       order.status = "FILLED";
     } else if (order.elapsedMs >= order.timeoutMs) {
       order.status = "TIMED_OUT";
+      order.failureState = "TIMED_OUT";
     }
     this.record(id, "TICK", { elapsedMs, status: order.status }, eventSequence);
     return this.snapshot(order);
@@ -105,14 +107,17 @@ export class ExecutionEngine {
   crash(id, eventSequence = null) {
     const order = this.require(id);
     this.assertEventSequence(order, eventSequence);
-    if (order.status !== "FILLED") order.status = "CRASHED";
+    if (order.status !== "FILLED") {
+      order.status = "CRASHED";
+      order.failureState = "CRASHED";
+    }
     this.record(id, "CRASH", { status: order.status }, eventSequence);
     return this.snapshot(order);
   }
 
   recover(id, eventSequence = null) {
     const order = this.require(id);
-    if (order.status !== "CRASHED" && order.status !== "TIMED_OUT") {
+    if (order.recovered || order.failureState === null) {
       return this.snapshot(order);
     }
     this.assertEventSequence(order, eventSequence);
