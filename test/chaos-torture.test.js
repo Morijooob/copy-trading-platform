@@ -7,46 +7,38 @@ const makeExecutor = ({ submit, reconcile }) => {
   return { store, executor: new PersistentNetworkResilientExecutor({ store, submit, reconcile }) };
 };
 
-// Combined torture scenario:
-// timeout/response-loss -> restart -> reconcile partial fill -> retry remaining qty
-// -> concurrent duplicate intent must never submit a second exchange order.
+// Combined torture scenario: response loss -> restart -> reconcile partial fill ->
+// duplicate intent. The invariant is that one logical intent gets one exchange submit.
 {
   let submitCalls = 0;
   let reconcileCalls = 0;
   let exchangeAccepted = false;
-  let exchangeOrderId = null;
 
-  const submit = async (order) => {
+  const submit = async () => {
     submitCalls += 1;
     if (submitCalls > 1) throw new Error('DUPLICATE EXCHANGE SUBMISSION');
     exchangeAccepted = true;
-    exchangeOrderId = 'ex-chaos-1';
-    // Simulate response loss after exchange acceptance.
-    throw new Error(`timeout after acceptance for ${order.clientRequestId}`);
+    throw new Error('timeout after acceptance');
   };
 
   const reconcile = async () => {
     reconcileCalls += 1;
     return exchangeAccepted
-      ? { confirmed: true, exchangeOrderId, filledQty: 0.4 }
+      ? { confirmed: true, exchangeOrderId: 'ex-chaos-1', filledQty: 0.4 }
       : { confirmed: false };
   };
 
   const first = makeExecutor({ submit, reconcile });
   const firstResult = await first.executor.execute({
-    clientRequestId: 'chaos-1',
-    symbol: 'ETHUSDT',
-    side: 'BUY',
-    quantity: 1,
+    clientRequestId: 'chaos-1', symbol: 'ETHUSDT', side: 'BUY', quantity: 1,
   });
 
   assert.equal(firstResult.status, 'UNKNOWN');
   assert.equal(submitCalls, 1);
 
-  // Restart: recover exchange truth without resubmitting.
   const restarted = makeExecutor({ submit, reconcile });
-  // Carry persisted state into the restarted process.
-  restarted.store.records = first.store.records;
+  // Simulate persistence surviving a process restart using the same store instance.
+  restarted.executor.store = first.store;
   const recovered = await restarted.executor.recoverAfterRestart();
   assert.equal(recovered.length, 1);
   assert.equal(recovered[0].status, 'CONFIRMED');
@@ -55,23 +47,15 @@ const makeExecutor = ({ submit, reconcile }) => {
   assert.equal(submitCalls, 1);
   assert.equal(reconcileCalls, 1);
 
-  // Same logical intent after restart must be idempotent.
   const duplicate = await restarted.executor.execute({
-    clientRequestId: 'chaos-1',
-    symbol: 'ETHUSDT',
-    side: 'BUY',
-    quantity: 1,
+    clientRequestId: 'chaos-1', symbol: 'ETHUSDT', side: 'BUY', quantity: 1,
   });
   assert.equal(duplicate.status, 'CONFIRMED');
   assert.equal(submitCalls, 1);
-
-  // Partial-fill truth is terminal for this original exchange order;
-  // a retry of the same intent must not create a second order.
   assert.equal(1 - recovered[0].filledQty, 0.6);
 }
 
-// Concurrent duplicate requests: persistence/idempotency must collapse them
-// to one exchange submission even when the exchange response is lost.
+// Concurrent duplicate requests must not create two exchange submissions.
 {
   let submitCalls = 0;
   let releaseSubmit;
