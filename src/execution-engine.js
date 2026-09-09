@@ -31,6 +31,10 @@ export class ExecutionEngine {
     return this.snapshot(order);
   }
 
+  getOrder(id) {
+    return this.snapshot(this.require(id));
+  }
+
   markSubmissionUnknown(id, reason = "UNKNOWN_OUTCOME", eventSequence = null) {
     const order = this.require(id);
     this.assertEventSequence(order, eventSequence);
@@ -91,7 +95,6 @@ export class ExecutionEngine {
     }
     order.filledQty = Math.min(order.requestedQty, order.filledQty + quantity);
     order.status = order.filledQty === order.requestedQty ? "FILLED" : "PARTIAL";
-    // Keep failureState: a late fill must not erase evidence that a crash/timeout happened.
     this.record(id, "EXCHANGE_FILL", { fillId, quantity, status: order.status }, eventSequence);
     this.persist();
     return this.snapshot(order);
