@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { BinanceSandboxAdapter } from "../src/binance-sandbox-adapter.js";
 
-const fixedClock = () => 1499827319559;
+const fixedClock = () => 1668481559918;
+const docsSecret = "NhqPtmdSJYdKjVHjA7PZj4Mge3R5YNiP1e3UZjInClVN65XAbvqqM6A7H5fATj0j";
 
-test("Binance sandbox HMAC signing matches the documented payload format", () => {
-  const adapter = new BinanceSandboxAdapter({ apiKey: "api", secretKey: "NhqPtmdSJYdKjVHjA7PZj4Mge3R5YNiP1e3UZjInClVN65XAbvqqM6A7H5fATj0e7f0e9d4b3f0d0d2a4d5f".slice(0,64), clock: fixedClock });
-  const signature = adapter.sign({ symbol: "LTCBTC", side: "BUY", type: "LIMIT", timeInForce: "GTC", quantity: "1", price: "0.1", recvWindow: "5000", timestamp: String(fixedClock()) });
-  assert.match(signature, /^[a-f0-9]{64}$/);
+test("Binance sandbox HMAC signing matches the documented regression vector", () => {
+  const adapter = new BinanceSandboxAdapter({ apiKey: "api", secretKey: docsSecret, clock: fixedClock });
+  const signature = adapter.sign({ symbol: "BTCUSDT", side: "SELL", type: "LIMIT", timeInForce: "GTC", quantity: "1", price: "0.2", timestamp: String(fixedClock()), recvWindow: "5000" });
+  assert.equal(signature, "e1353ec6b14d888f1164ae9af8228a3dbd508bc82eb867db8ab6046442f33ef3");
 });
 
 test("Binance sandbox signs authenticated requests and never permits LIVE", async () => {
