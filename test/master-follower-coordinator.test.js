@@ -28,7 +28,8 @@ function pipeline(status = "CONFIRMED", calls = []) {
   const left = coordinator.leaveFollower("F1");
   assert.equal(left.promoted.userId, "F3");
   assert.equal(coordinator.getFollowerStatus("F3").status, "ACTIVE");
-  assert.equal(coordinator.attachPromotedFollower({ followerId: "F3", pipeline: third }).slot, 2);
+  // F3 takes the slot released by F1; F2 remains in slot 2.
+  assert.equal(coordinator.attachPromotedFollower({ followerId: "F3", pipeline: third }).slot, 1);
 }
 
 // A duplicate join is idempotent and does not replace an active pipeline.
