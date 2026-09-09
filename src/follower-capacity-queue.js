@@ -66,8 +66,38 @@ export class FollowerCapacityQueue {
   snapshot() {
     return {
       capacity: this.capacity,
+      nextQueueId: this.nextQueueId,
       active: [...this.active.values()].map((entry) => structuredClone(entry)),
       waiting: [...this.waiting.values()].map((entry, index) => ({ ...structuredClone(entry), position: index + 1 }))
     };
+  }
+
+  restore(snapshot) {
+    if (!snapshot || snapshot.capacity !== this.capacity) throw new Error("invalid follower queue snapshot");
+    if (!Number.isInteger(snapshot.nextQueueId) || snapshot.nextQueueId < 1) throw new Error("invalid follower queue id");
+    if (!Array.isArray(snapshot.active) || !Array.isArray(snapshot.waiting)) throw new Error("invalid follower queue collections");
+    if (snapshot.active.length > this.capacity) throw new Error("follower queue capacity exceeded");
+
+    const active = new Map();
+    const waiting = new Map();
+    for (const entry of snapshot.active) {
+      if (!entry || typeof entry.userId !== "string" || entry.status !== "ACTIVE" || !Number.isInteger(entry.slot)) {
+        throw new Error("invalid active follower entry");
+      }
+      if (active.has(entry.userId) || waiting.has(entry.userId)) throw new Error("duplicate follower in queue snapshot");
+      active.set(entry.userId, { userId: entry.userId, status: "ACTIVE", slot: entry.slot });
+    }
+    for (const entry of snapshot.waiting) {
+      if (!entry || typeof entry.userId !== "string" || entry.status !== "WAITLISTED" || typeof entry.queueId !== "string") {
+        throw new Error("invalid waiting follower entry");
+      }
+      if (active.has(entry.userId) || waiting.has(entry.userId)) throw new Error("duplicate follower in queue snapshot");
+      waiting.set(entry.userId, { userId: entry.userId, status: "WAITLISTED", queueId: entry.queueId });
+    }
+
+    this.active = active;
+    this.waiting = waiting;
+    this.nextQueueId = snapshot.nextQueueId;
+    return this.snapshot();
   }
 }
