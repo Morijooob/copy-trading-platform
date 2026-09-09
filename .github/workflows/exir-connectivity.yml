@@ -54,3 +54,4 @@ jobs:
           console.log('EXIR_AUTH_OK: authenticated user and balance endpoints responded');
           NODE
 # Trigger real Exir connectivity check after repository secrets were configured.
+# Exir live-auth verification is read-only: no order or withdrawal call is made.
