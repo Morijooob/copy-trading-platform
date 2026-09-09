@@ -50,18 +50,23 @@ function makeSystem(limits = {}, state = null) {
   assert.equal(risk.reservedExposure, 400);
 }
 
-// 5. Reservation lifecycle survives gateway restart and can continue safely.
+// 5. Full execution + risk reservation state survives a real restart boundary.
 {
-  const { risk, gateway } = makeSystem({ maxExposure: 1000 });
+  const { execution, risk, gateway } = makeSystem({ maxExposure: 1000 });
   const submitted = gateway.submit({ symbol: "ADAUSDT", side: "BUY", quantity: 8, price: 50, clientOrderId: "g6-restart" });
-  const state = gateway.exportState();
-  const restored = new RiskControlledExecution({ riskEngine: risk, executionEngine: gateway.executionEngine, state });
+  const gatewayState = gateway.exportState();
+  const executionState = execution.exportState();
+  const restoredExecution = new ExecutionEngine({ state: executionState });
+  const restoredRisk = new RiskEngine({ maxOrderNotional: 1000, maxDailyLoss: 200, maxExposure: 1000 });
+  const restored = new RiskControlledExecution({ riskEngine: restoredRisk, executionEngine: restoredExecution, state: gatewayState });
+  assert.equal(restoredRisk.exposure, 0);
+  assert.equal(restoredRisk.reservedExposure, 400);
   restored.onExchangeFill(submitted.order.id, 2, "fill-restart");
-  assert.equal(risk.exposure, 100);
-  assert.equal(risk.reservedExposure, 300);
+  assert.equal(restoredRisk.exposure, 100);
+  assert.equal(restoredRisk.reservedExposure, 300);
   const duplicate = restored.submit({ symbol: "ADAUSDT", side: "BUY", quantity: 8, price: 50, clientOrderId: "g6-restart" });
   assert.equal(duplicate.accepted, true);
-  assert.equal(risk.reservedExposure, 300);
+  assert.equal(restoredRisk.reservedExposure, 300);
 }
 
 // 6. A pending order whose reservation state is missing fails closed instead of creating untracked exposure.
