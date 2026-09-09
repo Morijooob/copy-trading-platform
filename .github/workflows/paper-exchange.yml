@@ -7,6 +7,7 @@ on:
       - 'src/**'
       - 'test/**'
       - 'paper-ui/**'
+      - 'paper-server.mjs'
       - 'package.json'
       - '.github/workflows/paper-exchange.yml'
   workflow_dispatch:
@@ -31,6 +32,8 @@ jobs:
         run: node --test test/copy-paper-integration.test.js
       - name: Run Paper Trading API tests
         run: node --test test/paper-trading-api.test.js
+      - name: Run Paper Trading HTTP smoke tests
+        run: node --test test/paper-server.test.js
       - name: Validate Paper Trading UI
         run: test -f paper-ui/index.html && grep -q "Paper Trading" paper-ui/index.html
       - name: Run full regression
