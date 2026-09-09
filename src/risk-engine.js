@@ -78,5 +78,31 @@ export class RiskEngine {
     return result;
   }
 
+  exportState() {
+    return {
+      limits: structuredClone(this.limits),
+      killSwitch: this.killSwitch,
+      dailyRealizedLoss: this.dailyRealizedLoss,
+      exposure: this.exposure,
+      reservedExposure: this.reservedExposure,
+      audit: this.getAuditLog()
+    };
+  }
+
+  restoreState(state) {
+    if (!state || !state.limits || !Array.isArray(state.audit)) throw new Error("invalid risk engine state");
+    const sameLimit = Object.keys(this.limits).every((key) => state.limits[key] === this.limits[key]);
+    if (!sameLimit) throw new Error("risk limits mismatch on restore");
+    for (const [name, min] of [["dailyRealizedLoss", 0], ["exposure", 0], ["reservedExposure", 0]]) {
+      if (!Number.isFinite(state[name]) || state[name] < min) throw new Error(`invalid ${name}`);
+    }
+    if (state.exposure + state.reservedExposure > this.limits.maxExposure) throw new Error("invalid restored exposure");
+    this.killSwitch = Boolean(state.killSwitch);
+    this.dailyRealizedLoss = state.dailyRealizedLoss;
+    this.exposure = state.exposure;
+    this.reservedExposure = state.reservedExposure;
+    this.audit = structuredClone(state.audit);
+  }
+
   getAuditLog() { return structuredClone(this.audit); }
 }
