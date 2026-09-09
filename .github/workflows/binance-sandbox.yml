@@ -1,0 +1,46 @@
+name: Binance Sandbox Auth
+
+on:
+  push:
+    branches: ["feature/sandbox-exchange-adapter"]
+    paths:
+      - "src/binance-sandbox-adapter.js"
+      - "test/binance-sandbox-adapter.test.js"
+      - "package.json"
+      - ".github/workflows/binance-sandbox.yml"
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run Binance sandbox signing/auth tests
+        run: node --test test/binance-sandbox-adapter.test.js
+      - name: Run full regression
+        run: npm test
+
+  real-sandbox-auth:
+    if: ${{ secrets.BINANCE_SANDBOX_API_KEY != '' && secrets.BINANCE_SANDBOX_SECRET_KEY != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify real Binance Spot Testnet authentication
+        env:
+          BINANCE_SANDBOX_API_KEY: ${{ secrets.BINANCE_SANDBOX_API_KEY }}
+          BINANCE_SANDBOX_SECRET_KEY: ${{ secrets.BINANCE_SANDBOX_SECRET_KEY }}
+          BINANCE_SANDBOX_CONNECTIVITY: "1"
+        run: node --test test/binance-sandbox-adapter.test.js

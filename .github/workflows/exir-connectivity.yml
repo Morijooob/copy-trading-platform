@@ -1,0 +1,52 @@
+name: Exir Connectivity
+
+on:
+  push:
+    branches: ["feature/sandbox-exchange-adapter"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run Exir adapter tests
+        run: node --test test/exir-adapter.test.js
+
+  real-readonly-auth:
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify Exir authenticated account access
+        env:
+          EXIR_API_KEY: ${{ secrets.EXIR_API_KEY }}
+          EXIR_API_SECRET: ${{ secrets.EXIR_API_SECRET }}
+        run: |
+          test -n "$EXIR_API_KEY" || { echo "EXIR_API_KEY secret is missing"; exit 1; }
+          test -n "$EXIR_API_SECRET" || { echo "EXIR_API_SECRET secret is missing"; exit 1; }
+          node --input-type=module <<'NODE'
+          import { ExirAdapter } from './src/exir-adapter.js';
+          const adapter = new ExirAdapter({
+            apiKey: process.env.EXIR_API_KEY,
+            secretKey: process.env.EXIR_API_SECRET,
+          });
+          const user = await adapter.getUser();
+          const balance = await adapter.getBalance();
+          if (!user || typeof user !== 'object') throw new Error('Exir user response invalid');
+          if (!balance || typeof balance !== 'object') throw new Error('Exir balance response invalid');
+          console.log('EXIR_AUTH_OK: authenticated user and balance endpoints responded');
+          NODE

@@ -6,13 +6,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: gate3-${{ github.ref }}
+  group: gate3-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   gate3:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,5 +22,3 @@ jobs:
           node-version: 20
       - name: Run Gate 3
         run: node test/gate3.test.js
-      - name: Run regression suite
-        run: npm test

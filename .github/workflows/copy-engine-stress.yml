@@ -1,0 +1,23 @@
+name: Copy Engine Stress
+
+on:
+  push:
+    branches: ["feature/sandbox-exchange-adapter"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  copy-engine-stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run Copy Engine torture tests
+        run: node --test test/copy-engine-stress.test.js

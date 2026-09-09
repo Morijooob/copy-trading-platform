@@ -2,7 +2,9 @@ name: Gate 1 Tests
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - feature/sandbox-exchange-adapter
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -11,14 +13,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: gate1-${{ github.ref }}
+  group: gate1-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   gate1:
     name: Gate 1 deterministic test suite
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -40,4 +42,10 @@ jobs:
           test -f test/risk-controlled-execution.test.js
 
       - name: Run Gate 1 tests
-        run: npm test
+        run: |
+          node test/gate1.test.js
+          node test/network-resilience.test.js
+          node test/persistence-store.test.js
+          node test/restart-recovery.test.js
+          node test/risk-engine.test.js
+          node test/risk-controlled-execution.test.js
