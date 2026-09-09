@@ -3,6 +3,7 @@ export class MultiAccountCopyExecution {
     this.accounts = new Map();
     this.audit = [];
     this.exchangeAdapter = exchangeAdapter;
+    this.reservations = new Map();
     for (const account of accounts) this.addAccount(account);
   }
 
@@ -53,13 +54,16 @@ export class MultiAccountCopyExecution {
         account.riskEngine.reserveExposure(decision.notional);
         try {
           const order = account.executionEngine.createOrder({ symbol, side, quantity, timeoutMs, clientOrderId, eventSequence });
+          this.reservations.set(`${account.accountId}:${order.id}`, { accountId: account.accountId, orderId: order.id, quantity, price, remainingQuantity: quantity, remainingNotional: decision.notional });
           let exchangeOrder = null;
           if (this.exchangeAdapter) {
             try {
               exchangeOrder = this.exchangeAdapter.submitOrder({ accountId: account.accountId, symbol, side, quantity, price, clientOrderId });
               if (!exchangeOrder || typeof exchangeOrder.exchangeOrderId !== "string" || !exchangeOrder.exchangeOrderId) throw new Error("exchange adapter returned invalid order");
-              account.executionEngine.reconcileExchangeState(order.id, { found: true, exchangeOrderId: exchangeOrder.exchangeOrderId, filledQty: Number(exchangeOrder.filledQty ?? 0) }, eventSequence === null ? null : eventSequence + 1);
-              if (Number(exchangeOrder.filledQty ?? 0) > 0) account.riskEngine.releaseExposure(decision.notional * (Number(exchangeOrder.filledQty) / quantity));
+              const filledQty = Number(exchangeOrder.filledQuantity ?? exchangeOrder.filledQty ?? 0);
+              if (!Number.isFinite(filledQty) || filledQty < 0 || filledQty > quantity) throw new Error("exchange adapter returned invalid filled quantity");
+              account.executionEngine.reconcileExchangeState(order.id, { found: true, exchangeOrderId: exchangeOrder.exchangeOrderId, filledQty }, eventSequence === null ? null : eventSequence + 1);
+              if (filledQty > 0) this.onExchangeFill(account.accountId, order.id, filledQty, Number(exchangeOrder.averageFillPrice ?? price), eventSequence === null ? null : eventSequence + 2, { skipExecutionUpdate: true });
             } catch (exchangeError) {
               account.executionEngine.markSubmissionUnknown(order.id, String(exchangeError.message || exchangeError), eventSequence === null ? null : eventSequence + 1);
               results.push({ accountId: account.accountId, status: "EXCHANGE_UNKNOWN", reason: String(exchangeError.message || exchangeError), order: account.executionEngine.getOrderById(order.id), exchangeOrder: null });
@@ -68,6 +72,7 @@ export class MultiAccountCopyExecution {
           }
           results.push({ accountId: account.accountId, status: "SUBMITTED", reason: null, order: account.executionEngine.getOrderById(order.id), exchangeOrder });
         } catch (error) {
+          this.reservations.delete(`${account.accountId}:${order.id}`);
           account.riskEngine.releaseExposure(decision.notional);
           results.push({ accountId: account.accountId, status: "FAILED", reason: String(error.message), order: null, exchangeOrder: null });
         }
@@ -87,6 +92,28 @@ export class MultiAccountCopyExecution {
     };
     this.audit.push({ type: "COPY_EXECUTED", signalId, summary: { submitted: summary.submitted, idempotent: summary.idempotent, rejected: summary.rejected, failed: summary.failed, exchangeUnknown: summary.exchangeUnknown, skipped: summary.skipped } });
     return summary;
+  }
+
+  onExchangeFill(accountId, orderId, quantity, price, eventSequence = null, { skipExecutionUpdate = false } = {}) {
+    const account = this.requireAccount(accountId);
+    if (!Number.isFinite(quantity) || quantity <= 0) throw new Error("invalid fill quantity");
+    if (!Number.isFinite(price) || price <= 0) throw new Error("invalid fill price");
+    const key = `${accountId}:${orderId}`;
+    const reservation = this.reservations.get(key);
+    if (!reservation) throw new Error("missing copy exposure reservation");
+    if (quantity > reservation.remainingQuantity) throw new Error("fill exceeds remaining copy quantity");
+    if (!skipExecutionUpdate) account.executionEngine.onExchangeFill(orderId, quantity, `copy-fill:${accountId}:${orderId}:${reservation.quantity - reservation.remainingQuantity + quantity}`, eventSequence);
+    const notional = quantity * price;
+    if (notional > reservation.remainingNotional + 1e-9) throw new Error("filled exposure exceeds reservation");
+    account.riskEngine.commitReservedExposure(notional);
+    reservation.remainingQuantity -= quantity;
+    reservation.remainingNotional -= notional;
+    if (reservation.remainingQuantity <= 1e-12) {
+      if (reservation.remainingNotional > 1e-9) account.riskEngine.releaseExposure(reservation.remainingNotional);
+      this.reservations.delete(key);
+    }
+    this.audit.push({ type: "COPY_FILL_COMMITTED", accountId, orderId, quantity, price, notional, remainingQuantity: Math.max(0, reservation.remainingQuantity), remainingNotional: Math.max(0, reservation.remainingNotional) });
+    return { exposure: account.riskEngine.exposure, reservedExposure: account.riskEngine.reservedExposure };
   }
 
   getAuditLog() { return structuredClone(this.audit); }
