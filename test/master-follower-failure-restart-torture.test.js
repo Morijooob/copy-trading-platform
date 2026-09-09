@@ -12,7 +12,8 @@ function makePipeline(followerId, epoch) {
 
       // F2 intermittently reaches the execution boundary, records the side effect,
       // and then throws. This simulates "accepted by exchange, timeout to caller".
-      if (followerId === "F2" && Number(input.clientOrderId.slice(-3)) % 5 === 0) {
+      const masterIndex = Number(input.clientOrderId.match(/FAIL-RS-(\d{3})/)?.[1]);
+      if (followerId === "F2" && masterIndex % 5 === 0) {
         if (accepted[followerId].has(input.clientOrderId)) {
           throw new Error(`duplicate side effect after restart: ${input.clientOrderId}`);
         }
