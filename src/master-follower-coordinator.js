@@ -1,6 +1,7 @@
 import { FollowerCapacityQueue } from "./follower-capacity-queue.js";
 
 const CAPACITY = 2;
+const STATE_VERSION = 1;
 
 export class MasterFollowerCoordinator {
   constructor({ queue = new FollowerCapacityQueue({ capacity: CAPACITY }) } = {}) {
@@ -107,6 +108,50 @@ export class MasterFollowerCoordinator {
       followerCount: results.length
     });
     return structuredClone(response);
+  }
+
+  exportState() {
+    return {
+      version: STATE_VERSION,
+      queue: this.queue.snapshot(),
+      signals: [...this.signals.values()].map((signal) => structuredClone(signal)),
+      audit: structuredClone(this.audit)
+    };
+  }
+
+  restoreState(state, pipelines = {}) {
+    if (!state || state.version !== STATE_VERSION) throw new Error("unsupported coordinator state version");
+    if (!state.queue || !Array.isArray(state.signals) || !Array.isArray(state.audit)) {
+      throw new Error("invalid coordinator state");
+    }
+    if (typeof this.queue.restore !== "function") throw new Error("queue does not support restore");
+
+    this.queue.restore(state.queue);
+    const restoredFollowers = new Map();
+    for (const entry of state.queue.active) {
+      const pipeline = pipelines[entry.userId];
+      if (!pipeline || typeof pipeline.submit !== "function") {
+        throw new Error(`missing pipeline for active follower: ${entry.userId}`);
+      }
+      restoredFollowers.set(entry.userId, {
+        followerId: entry.userId,
+        pipeline,
+        slot: entry.slot
+      });
+    }
+
+    const signals = new Map();
+    for (const signal of state.signals) {
+      if (!signal || typeof signal.masterSignalId !== "string" || signals.has(signal.masterSignalId)) {
+        throw new Error("invalid persisted master signal");
+      }
+      signals.set(signal.masterSignalId, structuredClone(signal));
+    }
+
+    this.followers = restoredFollowers;
+    this.signals = signals;
+    this.audit = structuredClone(state.audit);
+    return this.exportState();
   }
 
   getFollowerStatus(followerId) {
