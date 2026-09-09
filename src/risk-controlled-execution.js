@@ -16,8 +16,18 @@ export class RiskControlledExecution {
       return { accepted: false, risk: structuredClone(decision), order: null };
     }
 
-    const order = this.executionEngine.createOrder({ symbol, side, quantity, timeoutMs, clientOrderId, eventSequence });
-    return { accepted: true, risk: structuredClone(decision), order };
+    const existing = clientOrderId === null ? null : this.executionEngine.getOrderByClientId?.(clientOrderId);
+    if (existing === null || existing === undefined) {
+      this.riskEngine.reserveExposure(decision.notional);
+    }
+
+    try {
+      const order = this.executionEngine.createOrder({ symbol, side, quantity, timeoutMs, clientOrderId, eventSequence });
+      return { accepted: true, risk: structuredClone(decision), order };
+    } catch (error) {
+      if (existing === null || existing === undefined) this.riskEngine.releaseExposure(decision.notional);
+      throw error;
+    }
   }
 
   getAuditLog() {
