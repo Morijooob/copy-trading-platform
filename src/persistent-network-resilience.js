@@ -14,16 +14,11 @@ export class PersistentNetworkResilience extends NetworkResilience {
   restore() {
     const state = this.store.load();
     this.nextId = state.nextRequestId;
-    this.requests = new Map(
-      state.requests.map((request) => [request.clientRequestId, structuredClone(request)])
-    );
+    this.requests = new Map(state.requests.map((request) => [request.clientRequestId, structuredClone(request)]));
   }
 
   persist() {
-    this.store.save({
-      nextRequestId: this.nextId,
-      requests: [...this.requests.values()]
-    });
+    this.store.save({ nextRequestId: this.nextId, requests: [...this.requests.values()] });
   }
 
   execute(input) {
@@ -46,13 +41,22 @@ export class PersistentNetworkResilience extends NetworkResilience {
       if (request.status === "CONFIRMED") continue;
 
       const reconciliation = this.reconcileResult(request);
-      if (reconciliation.confirmed) {
+      if (reconciliation.confirmed === true) {
         request.status = "CONFIRMED";
         request.exchangeOrderId = reconciliation.exchangeOrderId ?? request.exchangeOrderId;
+        request.filledQty = reconciliation.filledQty ?? request.filledQty ?? null;
         request.lastError = null;
         request.reconciled = true;
         recovered.push(structuredClone(request));
+        continue;
       }
+
+      // Explicitly unresolved at the exchange means the original request was not found.
+      // It is safe to retry, but we still keep the request persisted and auditable.
+      request.status = "UNKNOWN";
+      request.reconciled = true;
+      request.lastError = null;
+      recovered.push(structuredClone(request));
     }
     this.persist();
     return recovered;
