@@ -1,0 +1,36 @@
+name: Gate 7 Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'package.json'
+      - '.github/workflows/gate7.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate7-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate7:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify Gate 7 files
+        run: test -f test/gate7.test.js && test -f src/exchange-order-state-machine.js
+      - name: Run Gate 7 torture tests
+        run: node test/gate7.test.js
+      - name: Run full regression suite
+        run: npm test
