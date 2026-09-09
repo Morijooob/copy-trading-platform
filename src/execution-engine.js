@@ -5,7 +5,13 @@ export class ExecutionEngine {
   }
 
   createOrder({ symbol, side, quantity, timeoutMs = 5000 }) {
-    if (!symbol || !side || quantity <= 0) throw new Error("invalid order");
+    if (!symbol || !side || !Number.isFinite(quantity) || quantity <= 0) {
+      throw new Error("invalid order");
+    }
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      throw new Error("invalid timeout");
+    }
+
     const id = String(this.nextId++);
     const order = {
       id,
@@ -16,14 +22,27 @@ export class ExecutionEngine {
       status: "PENDING",
       timeoutMs,
       elapsedMs: 0,
-      recovered: false
+      recovered: false,
+      processedFillIds: new Set()
     };
     this.orders.set(id, order);
     return this.snapshot(order);
   }
 
-  onExchangeFill(id, quantity) {
+  onExchangeFill(id, quantity, fillId = null) {
     const order = this.require(id);
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      throw new Error("invalid fill");
+    }
+
+    if (fillId !== null) {
+      if (order.processedFillIds.has(fillId)) {
+        return this.snapshot(order);
+      }
+      order.processedFillIds.add(fillId);
+    }
+
     if (order.status === "CRASHED" || order.status === "TIMED_OUT") {
       return this.snapshot(order);
     }
@@ -35,7 +54,11 @@ export class ExecutionEngine {
 
   tick(id, elapsedMs) {
     const order = this.require(id);
-    order.elapsedMs += Math.max(0, elapsedMs);
+    if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
+      throw new Error("invalid elapsed time");
+    }
+
+    order.elapsedMs += elapsedMs;
 
     if (order.filledQty === order.requestedQty) {
       order.status = "FILLED";
@@ -75,6 +98,8 @@ export class ExecutionEngine {
   }
 
   snapshot(order) {
-    return structuredClone(order);
+    const snapshot = structuredClone(order);
+    delete snapshot.processedFillIds;
+    return snapshot;
   }
 }
