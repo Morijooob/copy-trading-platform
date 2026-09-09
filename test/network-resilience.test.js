@@ -116,14 +116,14 @@ test("Duplicate Request: retry after unknown outcome is blocked by positive reco
 test("Validation: malformed requests and reconciliation responses are rejected", () => {
   assert.throws(() => new NetworkResilience({ submit: null, reconcile: () => ({ confirmed: false }) }), /invalid network handlers/);
 
-  const engine = new NetworkResilience({
-    submit: () => ({ accepted: true, exchangeOrderId: "ex-500" }),
+  const invalid = new NetworkResilience({
+    submit: () => { throw new Error("timeout"); },
     reconcile: () => ({ confirmed: "yes" })
   });
-  assert.throws(() => engine.execute({ clientRequestId: "", order: order() }), /invalid client request id/);
-  assert.throws(() => engine.execute({ clientRequestId: "bad-order", order: { symbol: "BTCUSDT", side: "BUY", quantity: 0 } }), /invalid order/);
-  engine.execute({ clientRequestId: "bad-reconcile", order: order() });
-  assert.throws(() => engine.retry("bad-reconcile"), /invalid reconciliation response/);
+  assert.throws(() => invalid.execute({ clientRequestId: "", order: order() }), /invalid client request id/);
+  assert.throws(() => invalid.execute({ clientRequestId: "bad-order", order: { symbol: "BTCUSDT", side: "BUY", quantity: 0 } }), /invalid order/);
+  invalid.execute({ clientRequestId: "bad-reconcile", order: order() });
+  assert.throws(() => invalid.retry("bad-reconcile"), /invalid reconciliation response/);
 });
 
 console.log(`\nNetwork Resilience Test Runner: ${passed} passed, ${failed} failed`);
