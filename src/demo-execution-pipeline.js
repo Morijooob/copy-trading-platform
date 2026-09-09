@@ -1,16 +1,18 @@
 import { ExecutionEngine } from "./execution-engine.js";
 import { NetworkResilience } from "./network-resilience.js";
+import { PersistentNetworkResilience } from "./persistent-network-resilience.js";
+import { NetworkPersistenceStore } from "./network-persistence-store.js";
 
 export class DemoExecutionPipeline {
-  constructor({ riskEngine, exchange, executionEngine = new ExecutionEngine() } = {}) {
-    if (!riskEngine || typeof riskEngine.reserve !== "function") throw new Error("invalid risk engine");
+  constructor({ riskEngine, exchange, executionEngine = new ExecutionEngine(), network = null, state = null } = {}) {
+    if (!riskEngine || typeof riskEngine.reserve !== "function" || typeof riskEngine.exportState !== "function") throw new Error("invalid risk engine");
     if (!exchange || typeof exchange.submitOrder !== "function" || typeof exchange.reconcile !== "function") throw new Error("invalid demo exchange");
-    if (!executionEngine || typeof executionEngine.createOrder !== "function") throw new Error("invalid execution engine");
+    if (!executionEngine || typeof executionEngine.createOrder !== "function" || typeof executionEngine.exportState !== "function") throw new Error("invalid execution engine");
 
     this.riskEngine = riskEngine;
     this.exchange = exchange;
     this.executionEngine = executionEngine;
-    this.network = new NetworkResilience({
+    this.network = network ?? new PersistentNetworkResilience({
       submit: (order) => {
         const result = this.exchange.submitOrder(order);
         return { accepted: true, exchangeOrderId: result.exchangeOrderId };
@@ -20,10 +22,13 @@ export class DemoExecutionPipeline {
         return result.confirmed
           ? { confirmed: true, exchangeOrderId: result.exchangeOrderId, filledQty: result.filledQty, status: result.status }
           : { confirmed: false };
-      }
+      },
+      store: new NetworkPersistenceStore(state?.network ?? null)
     });
+    if (!(this.network instanceof NetworkResilience) || typeof this.network.execute !== "function") throw new Error("invalid network resilience");
     this.orders = new Map();
     this.audit = [];
+    if (state !== null) this.restoreState(state);
   }
 
   submit({ symbol, side, quantity, price, timeoutMs = 5000, clientOrderId } = {}) {
@@ -55,8 +60,15 @@ export class DemoExecutionPipeline {
     });
 
     if (network.status === "CONFIRMED") {
-      this.syncConfirmed(order.id, network);
-      this.riskEngine.commitReservation(reservation.reservationId);
+      try {
+        this.syncConfirmed(order.id, network);
+        this.riskEngine.commitReservation(reservation.reservationId);
+      } catch (error) {
+        const pending = { accepted: true, status: "CONFIRMED_RECONCILIATION_PENDING", error: error instanceof Error ? error.message : String(error), risk: structuredClone(reservation), order: this.executionEngine.getOrder(order.id), network: structuredClone(network) };
+        record.result = pending;
+        this.audit.push({ type: "PIPELINE_CONFIRMED_RECONCILIATION_PENDING", clientOrderId, orderId: order.id });
+        return structuredClone(pending);
+      }
     }
 
     const result = { accepted: true, status: network.status, risk: structuredClone(reservation), order: this.executionEngine.getOrder(order.id), network: structuredClone(network) };
@@ -80,9 +92,28 @@ export class DemoExecutionPipeline {
     }
 
     const result = { status: retried.status, order: this.executionEngine.getOrder(record.orderId), network: retried };
-    record.result = { ...record.result, ...result };
+    record.result = { ...(record.result ?? {}), ...result };
     this.audit.push({ type: "PIPELINE_RECOVERY_ATTEMPT", clientOrderId, status: retried.status });
     return structuredClone(result);
+  }
+
+  recoverAfterRestart() {
+    if (typeof this.network.recoverAfterRestart !== "function") throw new Error("network does not support restart recovery");
+    const recovered = this.network.recoverAfterRestart();
+    const results = [];
+    for (const request of recovered) {
+      const record = this.orders.get(request.clientRequestId);
+      if (!record) throw new Error(`missing pipeline order for recovered request: ${request.clientRequestId}`);
+      if (request.status === "CONFIRMED") {
+        this.syncConfirmed(record.orderId, request);
+        if (this.riskEngine.getReservation(record.reservationId)?.status === "RESERVED") this.riskEngine.commitReservation(record.reservationId);
+      }
+      const result = { status: request.status, order: this.executionEngine.getOrder(record.orderId), network: request };
+      record.result = { ...(record.result ?? {}), ...result };
+      results.push(structuredClone(result));
+      this.audit.push({ type: "PIPELINE_RESTART_RECOVERY", clientOrderId: request.clientRequestId, status: request.status });
+    }
+    return results;
   }
 
   syncConfirmed(orderId, networkRequest) {
@@ -93,6 +124,37 @@ export class DemoExecutionPipeline {
       exchangeOrderId: exchangeState.exchangeOrderId,
       filledQty: exchangeState.filledQty
     });
+  }
+
+  exportState() {
+    if (typeof this.network.store?.load !== "function") throw new Error("network persistence is required");
+    return {
+      version: 1,
+      risk: this.riskEngine.exportState(),
+      execution: this.executionEngine.exportState(),
+      network: this.network.store.load(),
+      orders: [...this.orders.entries()].map(([clientOrderId, record]) => [clientOrderId, structuredClone(record)]),
+      audit: this.getAuditLog()
+    };
+  }
+
+  restoreState(state) {
+    if (!state || state.version !== 1 || !Array.isArray(state.orders) || !Array.isArray(state.audit)) throw new Error("invalid pipeline state");
+    this.riskEngine.restore(state.risk);
+    this.executionEngine.restore(state.execution);
+    this.orders = new Map(state.orders.map(([clientOrderId, record]) => [clientOrderId, structuredClone(record)]));
+    this.audit = structuredClone(state.audit);
+    if (this.network.store?.save) {
+      this.network.store.save(state.network);
+      if (typeof this.network.restore === "function") this.network.restore();
+    } else {
+      throw new Error("network persistence is required");
+    }
+    for (const [clientOrderId, record] of this.orders) {
+      if (record.orderId === undefined || record.reservationId === undefined) throw new Error(`invalid pipeline record: ${clientOrderId}`);
+      if (!this.network.get(clientOrderId)) throw new Error(`missing network request: ${clientOrderId}`);
+      if (!this.executionEngine.getOrder(record.orderId)) throw new Error(`missing execution order: ${record.orderId}`);
+    }
   }
 
   getOrder(clientOrderId) {
