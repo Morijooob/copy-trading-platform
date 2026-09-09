@@ -28,19 +28,19 @@ test("signal -> risk -> copy -> paper exchange -> fill -> reconciliation", () =>
   assert.equal(first.results[0].order.status, "PENDING");
   assert.equal(risk.exposure, 200);
 
-  const fill = exchange.fillOrder("paper-1", 1, 100);
-  const reconciled = execution.reconcileExchangeState(first.results[0].order.id, { found: true, exchangeOrderId: fill.exchangeOrderId, filledQty: fill.filledQty }, 3);
+  const fill = exchange.fillOrder("copy:sig-1:acct-1", 1, 100);
+  const reconciled = execution.reconcileExchangeState(first.results[0].order.id, { found: true, exchangeOrderId: fill.exchangeOrderId, filledQty: fill.filledQuantity }, 3);
   assert.equal(reconciled.status, "PARTIAL");
   assert.equal(reconciled.filledQty, 1);
 
-  const full = exchange.fillOrder("paper-1", 1, 101);
-  const final = execution.reconcileExchangeState(first.results[0].order.id, { found: true, exchangeOrderId: full.exchangeOrderId, filledQty: full.filledQty }, 4);
+  const full = exchange.fillOrder("copy:sig-1:acct-1", 1, 101);
+  const final = execution.reconcileExchangeState(first.results[0].order.id, { found: true, exchangeOrderId: full.exchangeOrderId, filledQty: full.filledQuantity }, 4);
   assert.equal(final.status, "FILLED");
   assert.equal(final.filledQty, 2);
 
   const replay = copy.executeCopy({ signalId: "sig-1", symbol: "BTCUSDT", side: "BUY", quantity: 2, price: 100, eventSequence: 5 });
   assert.equal(replay.idempotent, 1);
-  assert.equal(exchange.snapshot().orders.length, 1);
+  assert.equal(exchange.orders.size, 1);
 });
 
 test("exchange submission failure fails closed without releasing reserved exposure", () => {
