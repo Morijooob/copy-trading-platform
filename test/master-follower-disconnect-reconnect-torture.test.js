@@ -54,9 +54,9 @@ assert.equal(coordinator.exportState().signals.length, TOTAL);
 assert.equal(pipelines.F1.pipeline.executionEngine.exportState().orders.length, TOTAL);
 assert.equal(pipelines.F2.pipeline.executionEngine.exportState().orders.length, TOTAL);
 assert.equal(pipelines.F3.pipeline.executionEngine.exportState().orders.length, 0);
-assert.equal(pipelines.F1.exchange.getAcceptedOrders().length, TOTAL);
-assert.equal(pipelines.F2.exchange.getAcceptedOrders().length, TOTAL);
-assert.equal(pipelines.F3.exchange.getAcceptedOrders().length, 0);
+assert.equal(pipelines.F1.exchange.exportState().orders.length, TOTAL);
+assert.equal(pipelines.F2.exchange.exportState().orders.length, TOTAL);
+assert.equal(pipelines.F3.exchange.exportState().orders.length, 0);
 
 // Disconnect F1 and promote F3. Promotion must not replay historical signals.
 coordinator.leaveFollower("F1");
@@ -66,7 +66,7 @@ const stateAfterPromotion = coordinator.exportState();
 assert.deepEqual(stateAfterPromotion.queue.active.map((entry) => entry.userId), ["F2", "F3"]);
 assert.equal(stateAfterPromotion.queue.waiting.length, 0);
 assert.equal(pipelines.F3.pipeline.executionEngine.exportState().orders.length, 0);
-assert.equal(pipelines.F3.exchange.getAcceptedOrders().length, 0);
+assert.equal(pipelines.F3.exchange.exportState().orders.length, 0);
 
 // Second wave: only F2 and newly promoted F3 are active.
 for (let i = 1; i <= TOTAL; i += 1) {
@@ -91,15 +91,15 @@ for (let i = 1; i <= TOTAL; i += 1) {
 
 // F2 was active for both waves: 300 + 300 = 600.
 assert.equal(pipelines.F2.pipeline.executionEngine.exportState().orders.length, TOTAL * 2);
-assert.equal(pipelines.F2.exchange.getAcceptedOrders().length, TOTAL * 2);
+assert.equal(pipelines.F2.exchange.exportState().orders.length, TOTAL * 2);
 
 // F3 joined as active only after wave 1: it must execute only wave 2, i.e. 300.
 assert.equal(pipelines.F3.pipeline.executionEngine.exportState().orders.length, TOTAL);
-assert.equal(pipelines.F3.exchange.getAcceptedOrders().length, TOTAL);
+assert.equal(pipelines.F3.exchange.exportState().orders.length, TOTAL);
 
 // F1 disconnected after wave 1 and must remain at exactly its historical 300 executions.
 assert.equal(pipelines.F1.pipeline.executionEngine.exportState().orders.length, TOTAL);
-assert.equal(pipelines.F1.exchange.getAcceptedOrders().length, TOTAL);
+assert.equal(pipelines.F1.exchange.exportState().orders.length, TOTAL);
 
 // Every master signal is unique; each duplicate/conflicting replay must be idempotently ignored.
 assert.equal(coordinator.exportState().signals.length, TOTAL * 2);
