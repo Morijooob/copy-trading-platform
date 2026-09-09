@@ -1,0 +1,38 @@
+name: Gate 8 Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'package.json'
+      - '.github/workflows/gate8.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate8-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate8:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify Gate 8 files
+        run: |
+          test -f src/multi-account-copy-execution.js
+          test -f test/gate8.test.js
+      - name: Run Gate 8 torture tests
+        run: node test/gate8.test.js
+      - name: Run full regression suite
+        run: npm test
