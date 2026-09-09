@@ -104,6 +104,6 @@ assert.equal(coordinator.exportState().signals.length, TOTAL * 2);
 
 console.log(
   `DISCONNECT-RECONNECT: ${TOTAL} first-wave signals + ${TOTAL} second-wave signals; ` +
-  `F1=F2-history=${TOTAL}, F2=${TOTAL * 2}, F3=${TOTAL}; 0 duplicate side effects; 0 historical replay`
+  `F1=${TOTAL}, F2=${TOTAL * 2}, F3=${TOTAL}; 0 duplicate side effects; 0 historical replay`
 );
 console.log("master-follower disconnect/reconnect torture tests: all passed");
