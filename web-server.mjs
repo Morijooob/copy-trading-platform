@@ -25,6 +25,7 @@ export function createWebServer({ exchange = new PaperExchange(), accountSecurit
   const token = (req) => (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const ensureSession = (req) => api.authenticate(token(req));
   const accountFromToken = (req) => accountSecurity.authenticate(token(req)).account;
+  const syncPaperSession = (auth) => { api.accounts.set(auth.account.userId, { accountId: auth.account.userId }); api.sessions.set(auth.token, { accountId: auth.account.userId, createdAt: Date.now() }); return auth; };
   const userProfile = (accountId) => users.get(accountId) || { userId: accountId, name: 'کاربر', role: 'FOLLOWER', kycLevel: KYC_LEVELS.UNVERIFIED };
 
   return http.createServer(async (req, res) => {
@@ -32,8 +33,8 @@ export function createWebServer({ exchange = new PaperExchange(), accountSecurit
       if (req.method === 'GET' && req.url === '/') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(await readFile(uiPath, 'utf8')); return; }
       if (req.method === 'GET' && req.url === '/health') { json(res, 200, { ok: true, service: 'copy-trading-web', paper: true, auth: true }); return; }
       if (req.method === 'POST' && req.url === '/api/auth/register') { json(res, 201, { ok: true, account: accountSecurity.register(await body(req)) }); return; }
-      if (req.method === 'POST' && req.url === '/api/auth/login') { json(res, 200, { ok: true, ...accountSecurity.login(await body(req)) }); return; }
-      if (req.method === 'POST' && req.url === '/api/auth/logout') { accountSecurity.authenticate(token(req)); json(res, 200, accountSecurity.logout(token(req))); return; }
+      if (req.method === 'POST' && req.url === '/api/auth/login') { json(res, 200, { ok: true, ...syncPaperSession(accountSecurity.login(await body(req))) }); return; }
+      if (req.method === 'POST' && req.url === '/api/auth/logout') { const current = token(req); accountSecurity.authenticate(current); api.sessions.delete(current); json(res, 200, accountSecurity.logout(current)); return; }
       if (req.method === 'GET' && req.url === '/api/me') { json(res, 200, accountFromToken(req)); return; }
       if (req.method === 'PATCH' && req.url === '/api/profile') { json(res, 200, accountSecurity.updateProfile(token(req), await body(req))); return; }
       if (req.method === 'POST' && req.url === '/api/session') { json(res, 200, api.createSession({ accountId: 'demo' })); return; }
