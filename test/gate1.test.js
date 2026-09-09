@@ -182,6 +182,50 @@ test("Event Sequence Validation: zero, negative, and fractional sequences are re
   assert.throws(() => engine.createOrder({ symbol: "BTCUSDT", side: "BUY", quantity: 1, eventSequence: 1.5 }), /invalid event sequence/);
 });
 
+test("Adversarial: crash + late partial fill + duplicate fill + recovery remains consistent", () => {
+  const engine = new ExecutionEngine();
+  const order = engine.createOrder({ symbol: "BTCUSDT", side: "BUY", quantity: 10, clientOrderId: "chaos-1" });
+
+  assert.equal(engine.crash(order.id).status, "CRASHED");
+  assert.equal(engine.onExchangeFill(order.id, 4, "chaos-fill-1").status, "PARTIAL");
+  assert.equal(engine.onExchangeFill(order.id, 4, "chaos-fill-1").filledQty, 4);
+  assert.equal(engine.recover(order.id).status, "PARTIAL");
+  assert.equal(engine.onExchangeFill(order.id, 6, "chaos-fill-2").status, "FILLED");
+
+  const finalOrder = engine.require(order.id);
+  assert.equal(finalOrder.filledQty, 10);
+  assert.equal(finalOrder.status, "FILLED");
+  assert.equal(finalOrder.recovered, true);
+});
+
+test("Adversarial: timeout + late fill + conflicting duplicate fill cannot corrupt final quantity", () => {
+  const engine = new ExecutionEngine();
+  const order = engine.createOrder({
+    symbol: "ETHUSDT",
+    side: "SELL",
+    quantity: 5,
+    timeoutMs: 100
+  });
+
+  assert.equal(engine.tick(order.id, 100).status, "TIMED_OUT");
+  assert.equal(engine.onExchangeFill(order.id, 2, "late-1").filledQty, 2);
+  assert.throws(() => engine.onExchangeFill(order.id, 3, "late-1"), /conflicting fill id/);
+  assert.equal(engine.onExchangeFill(order.id, 3, "late-2").status, "FILLED");
+  assert.equal(engine.require(order.id).filledQty, 5);
+});
+
+test("Audit Log: returned log is a defensive copy", () => {
+  const engine = new ExecutionEngine();
+  const order = engine.createOrder({ symbol: "SOLUSDT", side: "BUY", quantity: 1 });
+  const log = engine.getAuditLog(order.id);
+  log[0].type = "CORRUPTED";
+  log[0].payload.quantity = 999;
+
+  const freshLog = engine.getAuditLog(order.id);
+  assert.equal(freshLog[0].type, "ORDER_CREATED");
+  assert.equal(freshLog[0].payload.quantity, 1);
+});
+
 test("Validation: invalid fills, elapsed time, timeout, and client order ID are rejected", () => {
   const engine = new ExecutionEngine();
   const order = engine.createOrder({ symbol: "ETHUSDT", side: "BUY", quantity: 1 });
