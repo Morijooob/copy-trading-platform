@@ -28,8 +28,13 @@ export class ExecutionEngine {
       ) {
         throw new Error("conflicting client order id");
       }
+      this.assertEventSequence(existing, eventSequence);
       this.record(existing.id, "DUPLICATE_ORDER", { clientOrderId }, eventSequence);
       return this.snapshot(existing);
+    }
+
+    if (eventSequence !== null && (!Number.isInteger(eventSequence) || eventSequence <= 0)) {
+      throw new Error("invalid event sequence");
     }
 
     const id = String(this.nextId++);
@@ -59,6 +64,7 @@ export class ExecutionEngine {
     if (!Number.isFinite(quantity) || quantity <= 0) {
       throw new Error("invalid fill");
     }
+    this.assertEventSequence(order, eventSequence);
 
     if (fillId !== null) {
       const previousQuantity = order.processedFillIds.get(fillId);
@@ -83,6 +89,7 @@ export class ExecutionEngine {
     if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
       throw new Error("invalid elapsed time");
     }
+    this.assertEventSequence(order, eventSequence);
 
     order.elapsedMs += elapsedMs;
 
@@ -97,6 +104,7 @@ export class ExecutionEngine {
 
   crash(id, eventSequence = null) {
     const order = this.require(id);
+    this.assertEventSequence(order, eventSequence);
     if (order.status !== "FILLED") order.status = "CRASHED";
     this.record(id, "CRASH", { status: order.status }, eventSequence);
     return this.snapshot(order);
@@ -107,6 +115,7 @@ export class ExecutionEngine {
     if (order.status !== "CRASHED" && order.status !== "TIMED_OUT") {
       return this.snapshot(order);
     }
+    this.assertEventSequence(order, eventSequence);
 
     order.recovered = true;
     if (order.filledQty === order.requestedQty) {
@@ -125,17 +134,20 @@ export class ExecutionEngine {
     return structuredClone(events);
   }
 
+  assertEventSequence(order, eventSequence) {
+    if (eventSequence === null) return;
+    if (!Number.isInteger(eventSequence) || eventSequence <= 0) {
+      throw new Error("invalid event sequence");
+    }
+    if (order.lastEventSequence !== null && eventSequence <= order.lastEventSequence) {
+      throw new Error("out-of-order event");
+    }
+  }
+
   record(orderId, type, payload, eventSequence = null) {
     const order = this.orders.get(orderId);
-    if (eventSequence !== null) {
-      if (!Number.isInteger(eventSequence) || eventSequence <= 0) {
-        throw new Error("invalid event sequence");
-      }
-      if (order && order.lastEventSequence !== null && eventSequence <= order.lastEventSequence) {
-        throw new Error("out-of-order event");
-      }
-      if (order) order.lastEventSequence = eventSequence;
-    }
+    this.assertEventSequence(order, eventSequence);
+    if (order && eventSequence !== null) order.lastEventSequence = eventSequence;
 
     this.auditLog.push({
       eventId: String(this.nextEventId++),
