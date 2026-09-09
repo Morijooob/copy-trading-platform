@@ -1,0 +1,33 @@
+name: Gate 3 Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - '.github/workflows/gate3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate3-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run Gate 3
+        run: node test/gate3.test.js
+      - name: Run regression suite
+        run: npm test
