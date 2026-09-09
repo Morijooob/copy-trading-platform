@@ -46,19 +46,36 @@ test('multi-account copy stress: 25 accounts × 20 signals with fill replay isol
   const results = [];
   for (let signal = 0; signal < 20; signal += 1) for (const account of accounts) results.push(await copy.executeCopy({ signalId: `stress-signal-${signal}`, symbol: signal % 2 ? 'BTCUSDT' : 'ETHUSDT', side: signal % 3 === 0 ? 'SELL' : 'BUY', quantity: 1, price: 100 + signal, timeoutMs: 1000 }));
   assert.equal(results.length, 500);
-  assert.equal(results.filter((r) => r.status === 'FILLED').length, 500);
+  assert.equal(results.filter((r) => r.status === 'PENDING').length, 500);
   assert.equal(exchange.orders.size, 500);
-  const order = results.find((r) => r.accountId === 'acct-0').order;
-  const firstFill = await copy.onExchangeFill('acct-0', order.id, 0.5, 100, 1, { fillId: 'stress-fill-1' });
+
+  const first = results.find((r) => r.accountId === 'acct-0' && r.order.clientOrderId === 'copy:stress-signal-0:acct-0');
+  assert.ok(first);
+  const order = first.order;
+  const fill1 = exchange.fillOrder(order.clientOrderId, 0.5, 100);
+  assert.equal(fill1.status, 'PARTIALLY_FILLED');
+  const firstFill = copy.onExchangeFill('acct-0', order.id, 0.5, 100, 1, { fillId: 'stress-fill-1' });
   assert.equal(firstFill.duplicate, false);
   assert.equal(firstFill.remainingQuantity, 0.5);
-  const duplicate = await copy.onExchangeFill('acct-0', order.id, 0.5, 100, 1, { fillId: 'stress-fill-1' });
+  assert.equal(copy.getAccount('acct-0').riskEngine.exposure, 50);
+  assert.equal(copy.getAccount('acct-1').riskEngine.exposure, 0);
+
+  const duplicate = copy.onExchangeFill('acct-0', order.id, 0.5, 100, 1, { fillId: 'stress-fill-1' });
   assert.equal(duplicate.duplicate, true);
   assert.equal(duplicate.remainingQuantity, 0.5);
-  const finalFill = await copy.onExchangeFill('acct-0', order.id, 0.5, 100, 2, { fillId: 'stress-fill-2' });
+  assert.equal(copy.getAccount('acct-0').riskEngine.exposure, 50);
+
+  const fill2 = exchange.fillOrder(order.clientOrderId, 0.5, 100);
+  assert.equal(fill2.status, 'FILLED');
+  const finalFill = copy.onExchangeFill('acct-0', order.id, 0.5, 100, 2, { fillId: 'stress-fill-2' });
   assert.equal(finalFill.remainingQuantity, 0);
-  assert.equal(copy.getAccount('acct-0').riskEngine.exposure, 2000);
+  assert.equal(copy.getAccount('acct-0').riskEngine.exposure, 100);
+  assert.equal(copy.getAccount('acct-0').riskEngine.reservedExposure, 0);
   assert.equal(copy.getAccount('acct-1').riskEngine.exposure, 0);
+
+  const replay = await copy.executeCopy({ signalId: 'stress-signal-0', symbol: 'ETHUSDT', side: 'SELL', quantity: 1, price: 100, timeoutMs: 1000 });
+  assert.equal(replay.idempotent, 25);
+  assert.equal(exchange.orders.size, 500);
 });
 
 test('kill-switch style account isolation: disabled account stops while others continue', async () => {
@@ -69,6 +86,6 @@ test('kill-switch style account isolation: disabled account stops while others c
   const stopped = await copy.executeCopy({ signalId: 'ks-1', symbol: 'BTCUSDT', side: 'BUY', quantity: 1, price: 100 });
   const live = await copy.executeCopy({ signalId: 'ks-1', symbol: 'BTCUSDT', side: 'BUY', quantity: 1, price: 100 });
   assert.equal(stopped.status, 'ACCOUNT_DISABLED');
-  assert.equal(live.status, 'FILLED');
+  assert.equal(live.status, 'PENDING');
   assert.equal(exchange.orders.size, 1);
 });
