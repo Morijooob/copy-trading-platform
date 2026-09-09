@@ -1,0 +1,10 @@
+{
+  "name": "copy-trading-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic Gate 1 copy-trading execution core",
+  "type": "module",
+  "scripts": {
+    "test": "node test/gate1.test.js"
+  }
+}
