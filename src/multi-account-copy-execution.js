@@ -37,13 +37,15 @@ export class MultiAccountCopyExecution {
         continue;
       }
       const clientOrderId = `copy:${signalId}:${account.accountId}`;
-      try {
-        const existing = account.executionEngine.getOrderByClientId?.(clientOrderId);
-        if (existing) {
-          if (existing.symbol !== symbol || existing.side !== side || existing.requestedQty !== quantity || existing.timeoutMs !== timeoutMs) throw new Error("conflicting copy idempotency key");
-          results.push({ accountId: account.accountId, status: "IDEMPOTENT", reason: "ALREADY_SUBMITTED", order: existing });
-          continue;
+      const existing = account.executionEngine.getOrderByClientId?.(clientOrderId);
+      if (existing) {
+        if (existing.symbol !== symbol || existing.side !== side || existing.requestedQty !== quantity || existing.timeoutMs !== timeoutMs) {
+          throw new Error("conflicting copy idempotency key");
         }
+        results.push({ accountId: account.accountId, status: "IDEMPOTENT", reason: "ALREADY_SUBMITTED", order: existing });
+        continue;
+      }
+      try {
         const decision = account.riskEngine.approve({ side, quantity, price });
         if (!decision.approved) {
           results.push({ accountId: account.accountId, status: "RISK_REJECTED", reason: decision.failedChecks.join(",") || "RISK_REJECTED", order: null });
