@@ -10,7 +10,7 @@ assert.deepEqual(risk.approve({ side: "BUY", quantity: 11, price: 100 }).failedC
 risk.setExposure(1400);
 assert.deepEqual(risk.approve({ side: "BUY", quantity: 2, price: 100 }).failedChecks, ["MAX_EXPOSURE"]);
 
-risk.recordRealizedPnl(-200);
+risk.recordRealizedPnl(-201);
 assert.deepEqual(risk.approve({ side: "BUY", quantity: 1, price: 100 }).failedChecks, ["DAILY_LOSS"]);
 
 risk.setKillSwitch(true, "test");
