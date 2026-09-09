@@ -5,6 +5,6 @@
   "description": "Deterministic Gate 1 copy-trading execution core",
   "type": "module",
   "scripts": {
-    "test": "node test/gate1.test.js"
+    "test": "node test/gate1.test.js && node test/network-resilience.test.js"
   }
 }
