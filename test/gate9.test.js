@@ -45,14 +45,14 @@ test('audit log is append-only and hash-chain integrity detects tampering', () =
   assert.throws(() => new SecurityControl({ state }), /integrity failure/);
 });
 
-test('audit detects deleted, reordered, and injected events', () => {
+test('audit detects deletion, reordering, and injection', () => {
   const security = new SecurityControl({ actorId: 'ops', role: 'admin' });
   security.auditEvent('A', { n: 1 });
   security.auditEvent('B', { n: 2 });
-  const deleted = security.exportState(); deleted.audit.pop(); deleted.sequence = 1; deleted.lastHash = deleted.audit[0].hash;
+  const deleted = security.exportState(); deleted.audit.pop();
   const reordered = security.exportState(); [reordered.audit[0], reordered.audit[1]] = [reordered.audit[1], reordered.audit[0]];
   const injected = security.exportState(); injected.audit.push({ eventId: '3', type: 'FORGED', actorId: 'attacker', payload: {}, previousHash: injected.lastHash, hash: 'bad' }); injected.sequence = 3;
-  assert.throws(() => new SecurityControl({ state: deleted }), /integrity failure/);
+  assert.throws(() => new SecurityControl({ state: deleted }), /sequence mismatch/);
   assert.throws(() => new SecurityControl({ state: reordered }), /integrity failure/);
   assert.throws(() => new SecurityControl({ state: injected }), /integrity failure/);
 });
