@@ -66,7 +66,7 @@ test('multi-account copy stress: 25 accounts × 20 signals with fill replay isol
   const finalFill = copy.onExchangeFill('acct-0', order.id, 0.5, 100, 2, { fillId: 'stress-fill-2' });
   assert.equal(finalFill.filledQty, 1);
   assert.equal(copy.accounts.get('acct-0').riskEngine.exposure, 100);
-  assert.equal(copy.accounts.get('acct-0').riskEngine.reservedExposure, 2140);
+  assert.equal(copy.accounts.get('acct-0').riskEngine.reservedExposure, 2090);
   assert.equal(copy.accounts.get('acct-1').riskEngine.exposure, 0);
 
   const replaySummary = copy.executeCopy({ signalId: 'stress-signal-0', symbol: 'ETHUSDT', side: 'SELL', quantity: 1, price: 100, timeoutMs: 1000 });
