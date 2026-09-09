@@ -58,9 +58,8 @@ function makeComponents({ scenarios = {}, exchangeState = null, riskState = null
 }
 
 {
-  const first = makeComponents({ scenarios: { "late-partial": "TIMEOUT" } });
+  const first = makeComponents({ scenarios: { "late-partial": "TIMEOUT_PARTIAL" } });
   first.pipeline.submit({ symbol: "BTCUSDT", side: "BUY", quantity: 10, price: 100, clientOrderId: "late-partial" });
-  first.exchange.completePartialFill("late-partial");
   const state = first.pipeline.exportState();
   const second = makeComponents({ exchangeState: first.exchange.exportState(), riskState: state.risk, executionState: state.execution, pipelineState: state });
   const recovered = second.pipeline.recoverAfterRestart();
@@ -68,6 +67,7 @@ function makeComponents({ scenarios = {}, exchangeState = null, riskState = null
   second.exchange.completePartialFill("late-partial");
   const completed = second.pipeline.recover("late-partial");
   assert.equal(completed.order.status, "FILLED"); assert.equal(second.risk.exposure, 1000); assert.equal(second.risk.reservedExposure, 0);
+  assert.equal(second.exchange.getAuditLog().filter((e) => e.type === "ORDER_ACCEPTED").length, 1);
 }
 
 {
