@@ -73,7 +73,9 @@ assert.equal(retrySubmitCalls, 2);
 
 const ambiguous = new PersistentNetworkResilience({
   store: new NetworkPersistenceStore(),
-  submit: () => ({ accepted: true, exchangeOrderId: "ex-ambiguous" }),
+  submit: () => {
+    throw new Error("response lost after acceptance");
+  },
   reconcile: () => ({ confirmed: "maybe" })
 });
 ambiguous.execute({ clientRequestId: "ambiguous-1", order });
