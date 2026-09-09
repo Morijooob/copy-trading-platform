@@ -6,7 +6,7 @@ import { RiskEngine } from "../src/risk-engine.js";
 import { MasterFollowerCoordinator } from "../src/master-follower-coordinator.js";
 
 function makePipeline() {
-  const risk = new RiskEngine({ maxOrderNotional: 5000, maxDailyLoss: 5000, maxExposure: 5000 });
+  const risk = new RiskEngine({ maxOrderNotional: 5000, maxDailyLoss: 5000, maxExposure: 1000000 });
   const exchange = new DemoExchangeSimulator({ marketPrice: 100 });
   const execution = new ExecutionEngine();
   const pipeline = new DemoExecutionPipeline({ riskEngine: risk, exchange, executionEngine: execution });
@@ -68,6 +68,8 @@ function makePipeline() {
 
 // Burst test: many distinct master intents are interleaved with exact replays.
 // Every logical master/follower pair must produce exactly one demo exchange order.
+// Risk exposure is intentionally high here so this test measures concurrency/idempotency,
+// while the dedicated risk tests cover exposure rejection.
 {
   const followers = ["F1", "F2"];
   const pipelines = Object.fromEntries(followers.map((id) => [id, makePipeline()]));
