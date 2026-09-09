@@ -2,7 +2,7 @@ name: Sandbox Exchange Adapter
 
 on:
   push:
-    branches: ["feature/sandbox-exchange-adapter", "feature/persistence-hardening"]
+    branches: ["feature/sandbox-exchange-adapter"]
   pull_request:
     branches: ["main"]
   workflow_dispatch:
