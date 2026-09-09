@@ -2,13 +2,22 @@ name: Sandbox Exchange Adapter
 
 on:
   push:
-    branches: ["feature/sandbox-exchange-adapter"]
+    branches: ["feature/sandbox-exchange-adapter", "feature/persistence-hardening"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sandbox-adapter-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   sandbox-adapter:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
