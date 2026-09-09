@@ -1,0 +1,42 @@
+name: Gate 2 Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate2:
+    name: Gate 2 event integrity suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify Gate 2 files
+        run: |
+          test -f package.json
+          test -f src/execution-engine.js
+          test -f test/gate2.test.js
+
+      - name: Run Gate 2 tests
+        run: node test/gate2.test.js
+
+      - name: Run full Gate 1 regression suite
+        run: npm test
