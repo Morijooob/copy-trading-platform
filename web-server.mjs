@@ -25,18 +25,19 @@ export function createWebServer({ exchange = new PaperExchange(), accountSecurit
   const token = (req) => (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   const ensureSession = (req) => api.authenticate(token(req));
   const accountFromToken = (req) => accountSecurity.authenticate(token(req)).account;
-  const syncPaperSession = (auth) => { api.accounts.set(auth.account.userId, { accountId: auth.account.userId }); api.sessions.set(auth.token, { accountId: auth.account.userId, createdAt: Date.now() }); return auth; };
+  const syncPaperSession = (auth) => { api.accounts.set(auth.account.userId, { accountId: auth.account.userId }); api.sessions.set(auth.token, { accountId: auth.account.userId, createdAt: Date.now() }); users.set(auth.account.userId, { userId: auth.account.userId, name: auth.account.name, role: auth.account.role, kycLevel: auth.account.kycLevel }); return auth; };
+  const syncUserProfile = (account) => { users.set(account.userId, { userId: account.userId, name: account.name, role: account.role, kycLevel: account.kycLevel }); return account; };
   const userProfile = (accountId) => users.get(accountId) || { userId: accountId, name: 'کاربر', role: 'FOLLOWER', kycLevel: KYC_LEVELS.UNVERIFIED };
 
   return http.createServer(async (req, res) => {
     try {
       if (req.method === 'GET' && req.url === '/') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(await readFile(uiPath, 'utf8')); return; }
       if (req.method === 'GET' && req.url === '/health') { json(res, 200, { ok: true, service: 'copy-trading-web', paper: true, auth: true }); return; }
-      if (req.method === 'POST' && req.url === '/api/auth/register') { json(res, 201, { ok: true, account: accountSecurity.register(await body(req)) }); return; }
+      if (req.method === 'POST' && req.url === '/api/auth/register') { const account = syncUserProfile(accountSecurity.register(await body(req))); json(res, 201, { ok: true, account }); return; }
       if (req.method === 'POST' && req.url === '/api/auth/login') { json(res, 200, { ok: true, ...syncPaperSession(accountSecurity.login(await body(req))) }); return; }
       if (req.method === 'POST' && req.url === '/api/auth/logout') { const current = token(req); accountSecurity.authenticate(current); api.sessions.delete(current); json(res, 200, accountSecurity.logout(current)); return; }
       if (req.method === 'GET' && req.url === '/api/me') { json(res, 200, accountFromToken(req)); return; }
-      if (req.method === 'PATCH' && req.url === '/api/profile') { json(res, 200, accountSecurity.updateProfile(token(req), await body(req))); return; }
+      if (req.method === 'PATCH' && req.url === '/api/profile') { const account = syncUserProfile(accountSecurity.updateProfile(token(req), await body(req))); json(res, 200, account); return; }
       if (req.method === 'POST' && req.url === '/api/session') { json(res, 200, api.createSession({ accountId: 'demo' })); return; }
       if (req.method === 'GET' && req.url === '/api/profile') { const session = ensureSession(req); json(res, 200, { ...userProfile(session.accountId), mode: 'DEMO' }); return; }
       if (req.method === 'GET' && req.url === '/api/masters') { json(res, 200, Array.from(masters.values()).map(m => ({ ...m, ...stats.get(m.masterId) }))); return; }
