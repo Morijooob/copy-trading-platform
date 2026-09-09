@@ -7,20 +7,16 @@ const makeExecutor = ({ submit, reconcile }) => {
   return { store, executor: new PersistentNetworkResilientExecutor({ store, submit, reconcile }) };
 };
 
-// Combined torture scenario: response loss -> restart -> reconcile partial fill ->
-// duplicate intent. The invariant is that one logical intent gets one exchange submit.
 {
   let submitCalls = 0;
   let reconcileCalls = 0;
   let exchangeAccepted = false;
-
   const submit = async () => {
     submitCalls += 1;
     if (submitCalls > 1) throw new Error('DUPLICATE EXCHANGE SUBMISSION');
     exchangeAccepted = true;
     throw new Error('timeout after acceptance');
   };
-
   const reconcile = async () => {
     reconcileCalls += 1;
     return exchangeAccepted
@@ -29,17 +25,12 @@ const makeExecutor = ({ submit, reconcile }) => {
   };
 
   const first = makeExecutor({ submit, reconcile });
-  const firstResult = await first.executor.execute({
-    clientRequestId: 'chaos-1', symbol: 'ETHUSDT', side: 'BUY', quantity: 1,
-  });
-
+  const firstResult = await first.executor.execute({ clientRequestId: 'chaos-1', symbol: 'ETHUSDT', side: 'BUY', quantity: 1 });
   assert.equal(firstResult.status, 'UNKNOWN');
   assert.equal(submitCalls, 1);
 
-  const restarted = makeExecutor({ submit, reconcile });
-  // Simulate persistence surviving a process restart using the same store instance.
-  restarted.executor.store = first.store;
-  const recovered = await restarted.executor.recoverAfterRestart();
+  const recoveredExecutor = new PersistentNetworkResilientExecutor({ store: first.store, submit, reconcile });
+  const recovered = await recoveredExecutor.recoverAfterRestart();
   assert.equal(recovered.length, 1);
   assert.equal(recovered[0].status, 'CONFIRMED');
   assert.equal(recovered[0].filledQty, 0.4);
@@ -47,15 +38,12 @@ const makeExecutor = ({ submit, reconcile }) => {
   assert.equal(submitCalls, 1);
   assert.equal(reconcileCalls, 1);
 
-  const duplicate = await restarted.executor.execute({
-    clientRequestId: 'chaos-1', symbol: 'ETHUSDT', side: 'BUY', quantity: 1,
-  });
+  const duplicate = await recoveredExecutor.execute({ clientRequestId: 'chaos-1', symbol: 'ETHUSDT', side: 'BUY', quantity: 1 });
   assert.equal(duplicate.status, 'CONFIRMED');
   assert.equal(submitCalls, 1);
   assert.equal(1 - recovered[0].filledQty, 0.6);
 }
 
-// Concurrent duplicate requests must not create two exchange submissions.
 {
   let submitCalls = 0;
   let releaseSubmit;
@@ -63,11 +51,7 @@ const makeExecutor = ({ submit, reconcile }) => {
   const store = new NetworkPersistenceStore();
   const executor = new PersistentNetworkResilientExecutor({
     store,
-    submit: async () => {
-      submitCalls += 1;
-      await gate;
-      throw new Error('concurrent timeout');
-    },
+    submit: async () => { submitCalls += 1; await gate; throw new Error('concurrent timeout'); },
     reconcile: async () => ({ confirmed: false }),
   });
 
