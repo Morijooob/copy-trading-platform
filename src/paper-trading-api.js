@@ -1,10 +1,10 @@
-const crypto = require('node:crypto');
+import crypto from 'node:crypto';
 
-class PaperTradingApi {
-  constructor({ paperExchange, copyExecution, accounts = [] } = {}) {
+export class PaperTradingApi {
+  constructor({ paperExchange, copyExecution = null, accounts = [] } = {}) {
     if (!paperExchange) throw new Error('paperExchange is required');
     this.paperExchange = paperExchange;
-    this.copyExecution = copyExecution || null;
+    this.copyExecution = copyExecution;
     this.accounts = new Map(accounts.map((a) => [a.accountId, a]));
     this.sessions = new Map();
   }
@@ -22,15 +22,12 @@ class PaperTradingApi {
     return session;
   }
 
-  async placeOrder({ token, symbol, side, quantity, price, clientOrderId }) {
+  placeOrder({ token, symbol, side, quantity, price, clientOrderId }) {
     const session = this.authenticate(token);
     if (!symbol || !['BUY', 'SELL'].includes(side)) throw new Error('invalid order');
     if (!(Number(quantity) > 0) || !(Number(price) > 0)) throw new Error('invalid order size');
     const id = clientOrderId || `paper:${session.accountId}:${crypto.randomUUID()}`;
-    const result = this.paperExchange.submitOrder({
-      accountId: session.accountId, symbol, side,
-      quantity: Number(quantity), price: Number(price), clientOrderId: id
-    });
+    const result = this.paperExchange.submitOrder({ accountId: session.accountId, symbol, side, quantity: Number(quantity), price: Number(price), clientOrderId: id });
     return { accountId: session.accountId, ...result };
   }
 
@@ -38,12 +35,14 @@ class PaperTradingApi {
     const session = this.authenticate(token);
     const order = this.paperExchange.getOrder(clientOrderId);
     if (!order || order.accountId !== session.accountId) throw new Error('order not found');
-    return order;
+    return { accountId: session.accountId, ...order };
   }
 
   listOrders({ token }) {
     const session = this.authenticate(token);
-    return this.paperExchange.snapshot().orders.filter((o) => o.accountId === session.accountId);
+    return Array.from(this.paperExchange.orders.values())
+      .filter((o) => o.request.accountId === session.accountId)
+      .map((o) => ({ accountId: session.accountId, symbol: o.request.symbol, side: o.request.side, quantity: o.request.quantity, ...this.paperExchange.snapshot(o) }));
   }
 
   dashboard({ token }) {
@@ -53,5 +52,3 @@ class PaperTradingApi {
     return { accountId: session.accountId, mode: 'PAPER', orderCount: orders.length, filledNotional, orders };
   }
 }
-
-module.exports = { PaperTradingApi };
