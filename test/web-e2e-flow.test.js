@@ -26,9 +26,11 @@ async function request(base, path, { method = 'GET', token, body } = {}) {
   return { response, payload };
 }
 
+const randomPhone = (prefix) => `+98${prefix}${Math.floor(1000000 + Math.random() * 8999999)}`;
+
 test('full user flow: register -> login -> masters -> copy -> dashboard -> stop -> logout', async () => {
   await withServer(async (base) => {
-    const phone = '0912' + Math.floor(1000000 + Math.random() * 8999999);
+    const phone = randomPhone('912');
     const password = 'StrongPass123!';
 
     const register = await request(base, '/api/auth/register', {
@@ -88,8 +90,8 @@ test('full user flow: register -> login -> masters -> copy -> dashboard -> stop 
 test('two users remain isolated when copying the same master', async () => {
   await withServer(async (base) => {
     const users = [
-      { phone: '0912' + Math.floor(1000000 + Math.random() * 8999999), name: 'User A' },
-      { phone: '0935' + Math.floor(1000000 + Math.random() * 8999999), name: 'User B' }
+      { phone: randomPhone('912'), name: 'User A' },
+      { phone: randomPhone('935'), name: 'User B' }
     ];
     const password = 'StrongPass123!';
     const accounts = [];
