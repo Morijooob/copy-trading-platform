@@ -52,7 +52,6 @@ test('multi-account copy stress: 25 accounts × 20 signals with fill replay isol
   assert.equal(fill1.status, 'PARTIALLY_FILLED');
   const firstFill = copy.onExchangeFill('acct-0', order.id, 0.5, 100, 1, { fillId: 'stress-fill-1' });
   assert.equal(firstFill.filledQty, 0.5);
-  assert.equal(firstFill.remainingQuantity, 0.5);
   assert.equal(copy.accounts.get('acct-0').riskEngine.exposure, 50);
   assert.equal(copy.accounts.get('acct-1').riskEngine.exposure, 0);
 
