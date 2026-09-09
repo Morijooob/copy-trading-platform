@@ -28,6 +28,13 @@ const order = (clientOrderId, quantity = 10) => ({ clientOrderId, symbol: "BTCUS
   assert.equal(result.averagePrice, 100.5);
 }
 
+{
+  const ex = new DemoExchangeSimulator({ marketPrice: 100, slippageBps: 50 });
+  const result = ex.submitOrder({ clientOrderId: "sell-slippage", symbol: "BTCUSDT", side: "SELL", quantity: 0.1 });
+  assert.equal(result.averagePrice, 99.5);
+  assert.equal(result.filledQty, 0.1);
+}
+
 for (const scenario of ["TIMEOUT", "CRASH", "NETWORK_FAILURE"]) {
   const ex = new DemoExchangeSimulator({ scenarios: { failure: scenario } });
   assert.throws(() => ex.submitOrder(order("failure")), /simulated after acceptance/);
@@ -53,14 +60,24 @@ for (const scenario of ["TIMEOUT", "CRASH", "NETWORK_FAILURE"]) {
 }
 
 {
-  const ex1 = new DemoExchangeSimulator({ scenarios: { restart: "TIMEOUT" } });
+  const ex1 = new DemoExchangeSimulator({ marketPrice: 123.45, latencyMs: 77, slippageBps: 25, scenarios: { restart: "TIMEOUT", after: "FULL_FILL" } });
   assert.throws(() => ex1.submitOrder(order("restart")), /simulated after acceptance/);
   const state = ex1.exportState();
   const ex2 = new DemoExchangeSimulator({ state });
+  assert.equal(ex2.marketPrice, 123.45);
+  assert.equal(ex2.latencyMs, 77);
+  assert.equal(ex2.slippageBps, 25);
   const reconciliation = ex2.reconcile("restart");
   assert.equal(reconciliation.confirmed, true);
   assert.equal(reconciliation.exchangeOrderId, "DEMO-1");
   assert.equal(ex2.getOrder("restart").status, "OPEN");
+}
+
+{
+  const ex = new DemoExchangeSimulator();
+  ex.submitOrder(order("decimal", 0.3));
+  assert.equal(ex.getOrder("decimal").filledQty, 0.3);
+  assert.equal(ex.getOrder("decimal").status, "FILLED");
 }
 
 {
