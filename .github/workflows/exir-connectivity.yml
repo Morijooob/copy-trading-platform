@@ -23,7 +23,7 @@ jobs:
         run: node --test test/exir-adapter.test.js
 
   real-readonly-auth:
-    if: ${{ github.event_name != 'pull_request' && secrets.EXIR_API_KEY != '' && secrets.EXIR_API_SECRET != '' }}
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -36,6 +36,8 @@ jobs:
           EXIR_API_KEY: ${{ secrets.EXIR_API_KEY }}
           EXIR_API_SECRET: ${{ secrets.EXIR_API_SECRET }}
         run: |
+          test -n "$EXIR_API_KEY" || { echo "EXIR_API_KEY secret is missing"; exit 1; }
+          test -n "$EXIR_API_SECRET" || { echo "EXIR_API_SECRET secret is missing"; exit 1; }
           node --input-type=module <<'NODE'
           import { ExirAdapter } from './src/exir-adapter.js';
           const adapter = new ExirAdapter({
