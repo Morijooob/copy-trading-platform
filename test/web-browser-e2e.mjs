@@ -22,18 +22,18 @@ try {
   await page.locator('#authSubmit').click();
   await page.waitForSelector('#dash.active');
 
-  await page.getByRole('button', { name: 'Masterها' }).click();
+  await page.getByRole('button', { name: 'Masterها', exact: true }).click();
   await page.waitForSelector('#masters .master');
   if (await page.locator('#masters .master').count() < 3) throw new Error('expected at least 3 masters');
 
   await page.locator('#masters .master').first().getByRole('button', { name: /Copy این Master/ }).click();
   await page.getByRole('button', { name: 'تأیید و شروع' }).click();
   await page.waitForSelector('#dash.active');
-  await page.getByRole('button', { name: 'Masterهای من' }).click();
+  await page.getByRole('button', { name: 'Masterهای من', exact: true }).click();
   await page.waitForSelector('#following');
   if (!(await page.locator('#following').innerText()).includes('Alpha Master')) throw new Error('copy subscription not visible');
 
-  await page.getByRole('button', { name: 'نمای کلی' }).click();
+  await page.getByRole('button', { name: 'نمای کلی', exact: true }).click();
   if (!(await page.locator('#overview').innerText()).includes('داشبورد')) throw new Error('dashboard did not render');
 } finally {
   await browser.close();
