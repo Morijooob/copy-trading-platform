@@ -37,6 +37,11 @@ export class ExecutionEngine {
     return id === undefined ? null : this.snapshot(this.orders.get(id));
   }
 
+  getOrderById(id) {
+    const order = this.orders.get(id);
+    return order === undefined ? null : this.snapshot(order);
+  }
+
   markSubmissionUnknown(id, reason = "UNKNOWN_OUTCOME", eventSequence = null) {
     const order = this.require(id);
     this.assertEventSequence(order, eventSequence);
