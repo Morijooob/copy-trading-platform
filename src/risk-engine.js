@@ -7,6 +7,7 @@ export class RiskEngine {
     this.killSwitch = Boolean(killSwitch);
     this.dailyRealizedLoss = 0;
     this.exposure = 0;
+    this.reservedExposure = 0;
     this.audit = [];
   }
 
@@ -27,6 +28,22 @@ export class RiskEngine {
     this.exposure = exposure;
   }
 
+  reserveExposure(notional) {
+    if (!Number.isFinite(notional) || notional <= 0) throw new Error("invalid exposure reservation");
+    if (this.exposure + this.reservedExposure + notional > this.limits.maxExposure) throw new Error("max exposure exceeded");
+    this.reservedExposure += notional;
+    this.audit.push({ type: "EXPOSURE_RESERVED", notional, reservedExposure: this.reservedExposure });
+    return this.reservedExposure;
+  }
+
+  releaseExposure(notional) {
+    if (!Number.isFinite(notional) || notional <= 0) throw new Error("invalid exposure release");
+    if (notional > this.reservedExposure) throw new Error("exposure release exceeds reservation");
+    this.reservedExposure -= notional;
+    this.audit.push({ type: "EXPOSURE_RELEASED", notional, reservedExposure: this.reservedExposure });
+    return this.reservedExposure;
+  }
+
   approve({ side, quantity, price, currentExposure = this.exposure, realizedLoss = this.dailyRealizedLoss } = {}) {
     if (side !== "BUY" && side !== "SELL") throw new Error("invalid side");
     if (!Number.isFinite(quantity) || quantity <= 0) throw new Error("invalid quantity");
@@ -39,7 +56,7 @@ export class RiskEngine {
       ["KILL_SWITCH", !this.killSwitch],
       ["ORDER_NOTIONAL", notional <= this.limits.maxOrderNotional],
       ["DAILY_LOSS", realizedLoss < this.limits.maxDailyLoss],
-      ["MAX_EXPOSURE", currentExposure + notional <= this.limits.maxExposure]
+      ["MAX_EXPOSURE", currentExposure + this.reservedExposure + notional <= this.limits.maxExposure]
     ];
     const failed = checks.filter(([, passed]) => !passed).map(([name]) => name);
     const result = { approved: failed.length === 0, notional, failedChecks: failed };
