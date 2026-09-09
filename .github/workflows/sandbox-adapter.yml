@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: sandbox-adapter-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   sandbox-adapter:
