@@ -1,20 +1,38 @@
 export class ExecutionEngine {
   constructor() {
     this.orders = new Map();
+    this.ordersByClientId = new Map();
     this.nextId = 1;
   }
 
-  createOrder({ symbol, side, quantity, timeoutMs = 5000 }) {
+  createOrder({ symbol, side, quantity, timeoutMs = 5000, clientOrderId = null }) {
     if (!symbol || !side || !Number.isFinite(quantity) || quantity <= 0) {
       throw new Error("invalid order");
     }
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
       throw new Error("invalid timeout");
     }
+    if (clientOrderId !== null && (!clientOrderId || typeof clientOrderId !== "string")) {
+      throw new Error("invalid client order id");
+    }
+
+    if (clientOrderId !== null && this.ordersByClientId.has(clientOrderId)) {
+      const existing = this.orders.get(this.ordersByClientId.get(clientOrderId));
+      if (
+        existing.symbol !== symbol ||
+        existing.side !== side ||
+        existing.requestedQty !== quantity ||
+        existing.timeoutMs !== timeoutMs
+      ) {
+        throw new Error("conflicting client order id");
+      }
+      return this.snapshot(existing);
+    }
 
     const id = String(this.nextId++);
     const order = {
       id,
+      clientOrderId,
       symbol,
       side,
       requestedQty: quantity,
@@ -23,9 +41,10 @@ export class ExecutionEngine {
       timeoutMs,
       elapsedMs: 0,
       recovered: false,
-      processedFillIds: new Set()
+      processedFillIds: new Map()
     };
     this.orders.set(id, order);
+    if (clientOrderId !== null) this.ordersByClientId.set(clientOrderId, id);
     return this.snapshot(order);
   }
 
@@ -37,14 +56,14 @@ export class ExecutionEngine {
     }
 
     if (fillId !== null) {
-      if (order.processedFillIds.has(fillId)) {
+      const previousQuantity = order.processedFillIds.get(fillId);
+      if (previousQuantity !== undefined) {
+        if (previousQuantity !== quantity) {
+          throw new Error("conflicting fill id");
+        }
         return this.snapshot(order);
       }
-      order.processedFillIds.add(fillId);
-    }
-
-    if (order.status === "CRASHED" || order.status === "TIMED_OUT") {
-      return this.snapshot(order);
+      order.processedFillIds.set(fillId, quantity);
     }
 
     order.filledQty = Math.min(order.requestedQty, order.filledQty + quantity);
