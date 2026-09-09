@@ -52,19 +52,20 @@ test('multi-account copy stress: 25 accounts × 20 signals with fill replay isol
   assert.equal(fill1.status, 'PARTIALLY_FILLED');
   const firstFill = copy.onExchangeFill('acct-0', order.id, 0.5, 100, 1, { fillId: 'stress-fill-1' });
   assert.equal(firstFill.filledQty, 0.5);
-  assert.equal(copy.accounts.get('acct-0').riskEngine.exposure, 2140);
+  assert.equal(copy.accounts.get('acct-0').riskEngine.exposure, 50);
+  assert.equal(copy.accounts.get('acct-0').riskEngine.reservedExposure, 2140);
   assert.equal(copy.accounts.get('acct-1').riskEngine.exposure, 0);
 
   const duplicate = copy.onExchangeFill('acct-0', order.id, 0.5, 100, 1, { fillId: 'stress-fill-1' });
   assert.equal(duplicate.duplicate, true);
-  assert.equal(copy.accounts.get('acct-0').riskEngine.exposure, 2140);
+  assert.equal(copy.accounts.get('acct-0').riskEngine.exposure, 50);
   assert.equal(copy.accounts.get('acct-0').riskEngine.reservedExposure, 2140);
 
   const fill2 = exchange.fillOrder(order.clientOrderId, 0.5, 100);
   assert.equal(fill2.status, 'FILLED');
   const finalFill = copy.onExchangeFill('acct-0', order.id, 0.5, 100, 2, { fillId: 'stress-fill-2' });
   assert.equal(finalFill.filledQty, 1);
-  assert.equal(copy.accounts.get('acct-0').riskEngine.exposure, 2190);
+  assert.equal(copy.accounts.get('acct-0').riskEngine.exposure, 100);
   assert.equal(copy.accounts.get('acct-0').riskEngine.reservedExposure, 2140);
   assert.equal(copy.accounts.get('acct-1').riskEngine.exposure, 0);
 
