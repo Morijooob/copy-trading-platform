@@ -46,14 +46,16 @@ export function createWebServer({ exchange = new PaperExchange(), accountSecurit
   for (const account of persisted.accounts || []) accountSecurity.accounts.set(account.phone, account);
   for (const [phone, failures] of persisted.loginFailures || []) accountSecurity.loginFailures.set(phone, failures);
   for (const user of persisted.users || []) users.set(user.userId, user);
-  for (const subscription of persisted.subscriptions || []) subscriptions.set(`${subscription.followerId}:${subscription.masterId}`, subscription);
+  for (const subscription of persisted.subscriptions || []) {
+    if (subscription.followerId !== 'demo') subscriptions.set(`${subscription.followerId}:${subscription.masterId}`, subscription);
+  }
 
   let persistQueue = Promise.resolve();
   const persist = () => {
     const state = {
       version: 1,
       users: Array.from(users.values()).filter(user => user.userId !== 'demo'),
-      subscriptions: Array.from(subscriptions.values()),
+      subscriptions: Array.from(subscriptions.values()).filter(subscription => subscription.followerId !== 'demo'),
       accounts: Array.from(accountSecurity.accounts.values()),
       loginFailures: Array.from(accountSecurity.loginFailures.entries())
     };
@@ -75,7 +77,7 @@ export function createWebServer({ exchange = new PaperExchange(), accountSecurit
       if (req.method === 'GET' && req.url === '/') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(await readFile(uiPath, 'utf8')); return; }
       if (req.method === 'GET' && req.url === '/health') { json(res, 200, { ok: true, service: 'copy-trading-web', paper: true, auth: true, persistence: true }); return; }
       if (req.method === 'POST' && req.url === '/api/auth/register') { const account = syncUserProfile(accountSecurity.register(await body(req))); await persist(); json(res, 201, { ok: true, account }); return; }
-      if (req.method === 'POST' && req.url === '/api/auth/login') { json(res, 200, { ok: true, ...syncPaperSession(accountSecurity.login(await body(req))) }); return; }
+      if (req.method === 'POST' && req.url === '/api/auth/login') { try { json(res, 200, { ok: true, ...syncPaperSession(accountSecurity.login(await body(req))) }); } catch (error) { await persist(); throw error; } return; }
       if (req.method === 'POST' && req.url === '/api/auth/logout') { const current = token(req); accountSecurity.authenticate(current); api.sessions.delete(current); json(res, 200, accountSecurity.logout(current)); return; }
       if (req.method === 'GET' && req.url === '/api/me') { json(res, 200, accountFromToken(req)); return; }
       if (req.method === 'PATCH' && req.url === '/api/profile') { const account = syncUserProfile(accountSecurity.updateProfile(token(req), await body(req))); await persist(); json(res, 200, account); return; }
@@ -85,8 +87,8 @@ export function createWebServer({ exchange = new PaperExchange(), accountSecurit
       const masterMatch = req.url?.match(/^\/api\/masters\/([^/]+)$/);
       if (req.method === 'GET' && masterMatch) { const master = masters.get(masterMatch[1]); if (!master) return json(res, 404, { error: 'master not found' }); json(res, 200, { ...master, ...stats.get(master.masterId) }); return; }
       if (req.method === 'GET' && req.url === '/api/dashboard') { const session = ensureSession(req); const dashboard = api.dashboard({ token: token(req) }); const following = Array.from(subscriptions.values()).filter(s => s.followerId === session.accountId).map(s => ({ ...s, master: { ...masters.get(s.masterId), ...stats.get(s.masterId) } })); json(res, 200, { ...dashboard, profile: userProfile(session.accountId), following }); return; }
-      if (req.method === 'POST' && req.url === '/api/copy') { const session = ensureSession(req); const input = await body(req); const master = masters.get(input.masterId); if (!master) return json(res, 404, { error: 'master not found' }); if ((input.mode || 'DEMO') === 'LIVE') accountSecurity.requireKyc(token(req)); const subscription = createFollowerSubscription({ followerId: session.accountId, masterId: master.masterId, mode: input.mode || 'DEMO', allocation: Number(input.allocation || 1), maxRiskPercent: Number(input.maxRiskPercent || 100) }); addSubscription(subscriptions, subscription); await persist(); json(res, 201, { ok: true, subscription: { ...subscription, exchangeAdapter: undefined } }); return; }
-      if (req.method === 'DELETE' && masterMatch) { const session = ensureSession(req); const key = `${session.accountId}:${masterMatch[1]}`; if (!subscriptions.delete(key)) return json(res, 404, { error: 'subscription not found' }); await persist(); json(res, 200, { ok: true }); return; }
+      if (req.method === 'POST' && req.url === '/api/copy') { const session = ensureSession(req); const input = await body(req); const master = masters.get(input.masterId); if (!master) return json(res, 404, { error: 'master not found' }); if ((input.mode || 'DEMO') === 'LIVE') accountSecurity.requireKyc(token(req)); const subscription = createFollowerSubscription({ followerId: session.accountId, masterId: master.masterId, mode: input.mode || 'DEMO', allocation: Number(input.allocation || 1), maxRiskPercent: Number(input.maxRiskPercent || 100) }); addSubscription(subscriptions, subscription); if (session.accountId !== 'demo') await persist(); json(res, 201, { ok: true, subscription: { ...subscription, exchangeAdapter: undefined } }); return; }
+      if (req.method === 'DELETE' && masterMatch) { const session = ensureSession(req); const key = `${session.accountId}:${masterMatch[1]}`; if (!subscriptions.delete(key)) return json(res, 404, { error: 'subscription not found' }); if (session.accountId !== 'demo') await persist(); json(res, 200, { ok: true }); return; }
       if (req.method === 'POST' && req.url === '/api/orders') { ensureSession(req); const input = await body(req); json(res, 201, api.placeOrder({ token: token(req), ...input })); return; }
       json(res, 404, { error: 'not found' });
     } catch (error) { const message = error?.message || 'request failed'; const status = /unauthorized|invalid credentials/.test(message) ? 401 : /human verification required|phone verification failed|identity verification required/.test(message) ? 403 : /already exists|already subscribed/.test(message) ? 409 : /not found/.test(message) ? 404 : /production requires/.test(message) ? 503 : 400; json(res, status, { error: message }); }
