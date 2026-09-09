@@ -13,10 +13,13 @@ try {
   await page.locator('#authName').fill('Browser E2E');
   await page.locator('#authPhone').fill(phone);
   await page.locator('#authPassword').fill(password);
+  const registerResponse = page.waitForResponse(r => r.url().endsWith('/api/auth/register') && r.request().method() === 'POST');
   await page.locator('#authSubmit').click();
-  await page.waitForTimeout(150);
+  const registration = await registerResponse;
+  if (!registration.ok()) throw new Error(`registration failed: ${await registration.text()}`);
+
   await page.locator('#authPassword').fill(password);
-  await page.getByRole('button', { name: 'ورود', exact: true }).click();
+  await page.locator('#authSubmit').click();
   await page.waitForSelector('#dash.active');
 
   await page.getByRole('button', { name: 'Masterها' }).click();
