@@ -1,0 +1,43 @@
+name: Binance Read-Only Connectivity
+
+on:
+  push:
+    branches: ["feature/sandbox-exchange-adapter"]
+    paths:
+      - "src/binance-readonly-adapter.js"
+      - "test/binance-readonly-adapter.test.js"
+      - ".github/workflows/binance-readonly.yml"
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run read-only adapter tests
+        run: node --test test/binance-readonly-adapter.test.js
+
+  real-readonly-auth:
+    if: ${{ secrets.BINANCE_API_KEY != '' && secrets.BINANCE_API_SECRET != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify Binance account access without trading
+        env:
+          BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}
+          BINANCE_API_SECRET: ${{ secrets.BINANCE_API_SECRET }}
+          BINANCE_READONLY_CONNECTIVITY: "1"
+        run: node --test test/binance-readonly-adapter.test.js
