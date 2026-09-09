@@ -52,8 +52,9 @@ export class MultiAccountCopyExecution {
           continue;
         }
         account.riskEngine.reserveExposure(decision.notional);
+        let order = null;
         try {
-          const order = account.executionEngine.createOrder({ symbol, side, quantity, timeoutMs, clientOrderId, eventSequence });
+          order = account.executionEngine.createOrder({ symbol, side, quantity, timeoutMs, clientOrderId, eventSequence });
           this.reservations.set(`${account.accountId}:${order.id}`, { accountId: account.accountId, orderId: order.id, quantity, price, remainingQuantity: quantity, remainingNotional: decision.notional, processedFills: new Map() });
           let exchangeOrder = null;
           if (this.exchangeAdapter) {
@@ -72,7 +73,7 @@ export class MultiAccountCopyExecution {
           }
           results.push({ accountId: account.accountId, status: "SUBMITTED", reason: null, order: account.executionEngine.getOrderById(order.id), exchangeOrder });
         } catch (error) {
-          this.reservations.delete(`${account.accountId}:${order.id}`);
+          if (order !== null) this.reservations.delete(`${account.accountId}:${order.id}`);
           account.riskEngine.releaseExposure(decision.notional);
           results.push({ accountId: account.accountId, status: "FAILED", reason: String(error.message), order: null, exchangeOrder: null });
         }
