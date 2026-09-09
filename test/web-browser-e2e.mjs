@@ -3,7 +3,7 @@ import { chromium } from 'playwright';
 const baseUrl = process.env.BASE_URL || 'http://127.0.0.1:4173';
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage();
-const phone = `+98912${Date.now().toString().slice(-8)}`;
+const phone = `+98912${Date.now().toString().slice(-7)}`;
 const password = 'BrowserE2E!2026';
 
 try {
