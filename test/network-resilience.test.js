@@ -113,6 +113,35 @@ test("Duplicate Request: retry after unknown outcome is blocked by positive reco
   assert.equal(submitCalls, 1);
 });
 
+test("Idempotency Safety: same client request id with different order is rejected", () => {
+  let submitCalls = 0;
+  const engine = new NetworkResilience({
+    submit: () => {
+      submitCalls++;
+      return { accepted: true, exchangeOrderId: "ex-500" };
+    },
+    reconcile: () => ({ confirmed: false })
+  });
+
+  engine.execute({ clientRequestId: "conflict-1", order: order() });
+  assert.throws(
+    () => engine.execute({ clientRequestId: "conflict-1", order: { symbol: "ETHUSDT", side: "SELL", quantity: 2 } }),
+    /conflicting order for existing client request id/
+  );
+  assert.equal(submitCalls, 1);
+});
+
+test("Reconciliation Safety: confirmed result must include exchange order id", () => {
+  const engine = new NetworkResilience({
+    submit: () => { throw new Error("timeout"); },
+    reconcile: () => ({ confirmed: true })
+  });
+
+  engine.execute({ clientRequestId: "missing-ex-id", order: order() });
+  assert.throws(() => engine.retry("missing-ex-id"), /confirmed reconciliation missing exchange order id/);
+  assert.equal(engine.get("missing-ex-id").status, "UNKNOWN");
+});
+
 test("Validation: malformed requests and reconciliation responses are rejected", () => {
   assert.throws(() => new NetworkResilience({ submit: null, reconcile: () => ({ confirmed: false }) }), /invalid network handlers/);
 
