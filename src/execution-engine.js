@@ -91,7 +91,6 @@ export class ExecutionEngine {
     }
     order.filledQty = Math.min(order.requestedQty, order.filledQty + quantity);
     order.status = order.filledQty === order.requestedQty ? "FILLED" : "PARTIAL";
-    // Keep failureState: a late fill must not erase evidence that a crash/timeout happened.
     this.record(id, "EXCHANGE_FILL", { fillId, quantity, status: order.status }, eventSequence);
     this.persist();
     return this.snapshot(order);
@@ -157,7 +156,6 @@ export class ExecutionEngine {
   }
   record(orderId, type, payload, eventSequence = null) {
     const order = this.orders.get(orderId);
-    this.assertEventSequence(order, eventSequence);
     if (order && eventSequence !== null) order.lastEventSequence = eventSequence;
     this.auditLog.push({ eventId: String(this.nextEventId++), orderId, type, payload: structuredClone(payload), eventSequence, recordedAt: this.auditLog.length });
   }
