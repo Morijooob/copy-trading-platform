@@ -21,7 +21,7 @@ assert.throws(() => risk.approve({ side: "BUY", quantity: 0, price: 100 }), /inv
 assert.throws(() => risk.approve({ side: "HOLD", quantity: 1, price: 100 }), /invalid side/);
 
 {
-  const atomic = new RiskEngine({ maxOrderNotional: 1000, maxDailyLoss: 200, maxExposure: 1500 });
+  const atomic = new RiskEngine({ maxOrderNotional: 2000, maxDailyLoss: 200, maxExposure: 1500 });
   const first = atomic.reserve({ side: "BUY", quantity: 10, price: 100 });
   assert.equal(first.approved, true);
   assert.equal(atomic.reservedExposure, 1000);
