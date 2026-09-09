@@ -68,23 +68,8 @@ export class DemoExecutionPipeline {
   recover(clientOrderId) {
     const record = this.orders.get(clientOrderId);
     if (!record) throw new Error(`unknown client order: ${clientOrderId}`);
-
     const request = this.network.get(clientOrderId);
     if (!request) throw new Error(`unknown network request: ${clientOrderId}`);
-
-    const reconciliation = this.exchange.reconcile(clientOrderId);
-    if (reconciliation.confirmed) {
-      const retry = this.network.retry(clientOrderId);
-      const order = this.executionEngine.getOrder(record.orderId);
-      this.syncConfirmed(record.orderId, retry);
-      if (this.riskEngine.getReservation(record.reservationId)?.status === "RESERVED") {
-        this.riskEngine.commitReservation(record.reservationId);
-      }
-      const result = { status: "CONFIRMED", order: this.executionEngine.getOrder(record.orderId), network: retry };
-      record.result = { ...record.result, ...result };
-      this.audit.push({ type: "PIPELINE_RECOVERED", clientOrderId, status: order?.status ?? null });
-      return structuredClone(result);
-    }
 
     const retried = this.network.retry(clientOrderId);
     if (retried.status === "CONFIRMED") {
@@ -92,8 +77,6 @@ export class DemoExecutionPipeline {
       if (this.riskEngine.getReservation(record.reservationId)?.status === "RESERVED") {
         this.riskEngine.commitReservation(record.reservationId);
       }
-    } else if (this.riskEngine.getReservation(record.reservationId)?.status === "RESERVED") {
-      this.riskEngine.releaseReservation(record.reservationId);
     }
 
     const result = { status: retried.status, order: this.executionEngine.getOrder(record.orderId), network: retried };
