@@ -78,7 +78,7 @@ function pipeline(calls) {
 {
   const coordinator = new MasterFollowerCoordinator();
   assert.throws(() => coordinator.restoreState({ version: 999, queue: {}, signals: [], audit: [] }), /unsupported coordinator state version/);
-  assert.throws(() => coordinator.restoreState({ version: 1, queue: new FollowerQueueShape(), signals: [], audit: [] }), /invalid follower queue snapshot/);
+  assert.throws(() => coordinator.restoreState({ version: 1, queue: FollowerQueueShape(), signals: [], audit: [] }), /missing pipeline for active follower/);
 }
 
 function FollowerQueueShape() {
