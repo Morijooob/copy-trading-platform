@@ -9,9 +9,15 @@ assert.match(health, /realTradingEnabled: false/);
 assert.match(status, /readyForRealMoney: false/);
 assert.match(status, /DATABASE_URL/);
 assert.match(status, /EXIR_API_KEY/);
-assert.match(schema, /create table if not exists users/);
-assert.match(schema, /create table if not exists exchange_accounts/);
-assert.match(schema, /create table if not exists orders/);
-assert.match(schema, /create table if not exists ledger_entries/);
-assert.match(schema, /create table if not exists audit_events/);
+
+// Supabase Auth owns identities in auth.users; public application data is in public.* tables.
+assert.match(schema, /create table if not exists public\.profiles/);
+assert.match(schema, /references auth\.users\(id\)/);
+assert.match(schema, /create table if not exists public\.masters/);
+assert.match(schema, /create table if not exists public\.follows/);
+assert.match(schema, /create table if not exists public\.trades/);
+assert.match(schema, /create table if not exists public\.follower_trades/);
+assert.match(schema, /create table if not exists public\.ledger_entries/);
+assert.match(schema, /create table if not exists public\.audit_log/);
+assert.match(schema, /join_master\(p_user_id uuid,p_master_id uuid\)/);
 console.log('BACKEND CONTRACT: ALL TESTS PASSED');
