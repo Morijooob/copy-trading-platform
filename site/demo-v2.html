@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="محیط اختصاصی تست کپی‌تریدینگ دمو" />
+  <title>Demo Dashboard v2 · Copy Trading</title>
+  <link rel="stylesheet" href="./styles.css?v=9" />
+</head>
+<body>
+  <div class="bg"></div>
+  <header class="topbar">
+    <div class="brand"><span class="logo">CT</span><div><strong>Copy Trading</strong><small>محیط دمو</small></div></div>
+    <div class="top-actions"><span class="status"><span class="dot"></span> DEMO · بدون پول واقعی</span></div>
+  </header>
+  <main class="container">
+    <section class="hero card">
+      <div>
+        <span class="eyebrow">DEMO DASHBOARD</span>
+        <h1 id="title">محیط کپی‌تریدینگ دمو</h1>
+        <p id="description">تمام اعداد و معاملات این صفحه آزمایشی هستند.</p>
+        <div class="hero-actions">
+          <button class="primary" id="backMasters" type="button">بازگشت به مسترها</button>
+          <button class="secondary" id="homeBtn" type="button">صفحه اصلی</button>
+        </div>
+      </div>
+      <div class="hero-stat"><b id="statusText">فعال</b><span>وضعیت کپی دمو</span><small>هیچ سفارش واقعی ارسال نمی‌شود</small></div>
+    </section>
+    <section class="section-head"><div><span class="eyebrow">MASTER</span><h2>مستر انتخاب‌شده</h2></div><span class="badge demo">دمو فعال</span></section>
+    <section class="dashboard card">
+      <div class="account-grid">
+        <div><span>مستر</span><b id="masterName">Demo Master</b></div>
+        <div><span>بازده نمونه</span><b id="masterReturn">—</b></div>
+        <div><span>ریسک</span><b id="masterRisk">کنترل‌شده</b></div>
+        <div><span>صرافی</span><b>Demo Exchange · مجازی</b></div>
+      </div>
+      <div class="notice">این داشبورد فقط برای تست رابط و منطق دمو است. معامله واقعی، برداشت و اتصال به حساب واقعی عمداً قفل هستند.</div>
+    </section>
+    <section class="dashboard card">
+      <div class="section-head"><div><span class="eyebrow">SIMULATION</span><h2>کنترل شبیه‌سازی</h2></div><span class="badge active-badge" id="liveBadge">آماده</span></div>
+      <div class="account-grid">
+        <div><span>سرمایه مجازی</span><b id="balance">۱۰٬۰۰۰ USDT</b></div>
+        <div><span>سفارش‌های دمو</span><b id="orders">۰</b></div>
+        <div><span>سود/زیان دمو</span><b id="pnl">۰ USDT</b></div>
+        <div><span>وضعیت</span><b id="simState">متوقف</b></div>
+      </div>
+      <div class="hero-actions" style="margin-top:18px">
+        <button class="primary" id="startBtn" type="button">شروع شبیه‌سازی</button>
+        <button class="secondary" id="tradeBtn" type="button">اجرای معامله دمو</button>
+        <button class="secondary" id="resetBtn" type="button">بازنشانی دمو</button>
+      </div>
+      <div class="notice" id="activity">برای شروع، «شروع شبیه‌سازی» را بزنید. اینجا هیچ سفارش واقعی به صرافی ارسال نمی‌شود.</div>
+    </section>
+  </main>
+  <footer>© 2026 Copy Trading Platform · Demo environment</footer>
+  <script>
+    const masters={1:['Atlas Demo','+12.4%','کم'],2:['Momentum Demo','+8.7%','متوسط'],3:['Steady Demo','+5.2%','کم']};
+    let selected=null;try{selected=JSON.parse(sessionStorage.getItem('ct_selected_master')||'null')}catch(e){selected=null}
+    const id=selected&&Number(selected.id);const m=masters[id]||masters[1];const $=x=>document.getElementById(x);
+    $('masterName').textContent=m[0];$('masterReturn').textContent=m[1];$('masterRisk').textContent=m[2];$('title').textContent=`داشبورد ${m[0]}`;$('description').textContent=`محیط اختصاصی ${m[0]} آماده تست است؛ عملیات این صفحه شبیه‌سازی‌شده و بدون پول واقعی است.`;
+    let running=false,orders=0,pnl=0,balance=10000,timer=null;const fa=n=>String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
+    function update(){ $('balance').textContent=`${fa(Math.round(balance))} USDT`;$('orders').textContent=fa(orders);$('pnl').textContent=`${pnl>=0?'+':''}${fa(Math.round(pnl))} USDT`;$('simState').textContent=running?'در حال شبیه‌سازی':'متوقف';$('liveBadge').textContent=running?'زنده · دمو':'آماده';$('startBtn').textContent=running?'توقف شبیه‌سازی':'شروع شبیه‌سازی'; }
+    function demoTrade(){if(!running){$('activity').textContent='ابتدا شبیه‌سازی را شروع کنید.';return}const moves={1:[18,-9,27],2:[31,-16,22],3:[11,8,-6]};const move=moves[id]?.[orders%3]??12;pnl+=move;balance=10000+pnl;orders++;$('activity').textContent=`معامله دمو #${fa(orders)} برای ${m[0]} اجرا شد: ${move>=0?'+':''}${fa(move)} USDT. فقط شبیه‌سازی است.`;update();}
+    $('startBtn').onclick=()=>{running=!running;if(running){$('activity').textContent=`شبیه‌سازی ${m[0]} شروع شد. هر چند ثانیه یک رویداد دمو ثبت می‌شود.`;timer=setInterval(demoTrade,5000)}else{clearInterval(timer);timer=null;$('activity').textContent='شبیه‌سازی متوقف شد. داده‌ها برای ادامه تست حفظ شده‌اند.'}update()};
+    $('tradeBtn').onclick=demoTrade;
+    $('resetBtn').onclick=()=>{running=false;clearInterval(timer);timer=null;orders=0;pnl=0;balance=10000;$('activity').textContent=`دموی ${m[0]} بازنشانی شد. آماده شروع دوباره.`;update()};
+    $('backMasters').onclick=()=>{window.location.href='./index.html#masters'};$('homeBtn').onclick=()=>{window.location.href='./index.html'};update();
+  </script>
+</body>
+</html>
