@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="محیط اختصاصی تست کپی‌تریدینگ دمو" />
+  <title>Demo Dashboard · Copy Trading</title>
+  <link rel="stylesheet" href="./styles.css?v=9" />
+</head>
+<body>
+  <div class="bg"></div>
+  <header class="topbar">
+    <div class="brand"><span class="logo">CT</span><div><strong>Copy Trading</strong><small>محیط دمو</small></div></div>
+    <div class="top-actions"><span class="status"><span class="dot"></span> DEMO · بدون پول واقعی</span></div>
+  </header>
+  <main class="container">
+    <section class="hero card">
+      <div>
+        <span class="eyebrow">DEMO DASHBOARD</span>
+        <h1 id="title">محیط کپی‌تریدینگ دمو</h1>
+        <p id="description">کپی دمو با موفقیت فعال شده است. تمام اعداد و معاملات این صفحه آزمایشی هستند.</p>
+        <div class="hero-actions"><a class="primary" href="./index.html#masters">بازگشت به مسترها</a><a class="secondary" href="./index.html">صفحه اصلی</a></div>
+      </div>
+      <div class="hero-stat"><b id="statusText">فعال</b><span>وضعیت کپی دمو</span><small>هیچ سفارش واقعی ارسال نمی‌شود</small></div>
+    </section>
+    <section class="section-head"><div><span class="eyebrow">MASTER</span><h2>مستر انتخاب‌شده</h2></div><span class="badge demo">دمو فعال</span></section>
+    <section class="dashboard card">
+      <div class="account-grid">
+        <div><span>مستر</span><b id="masterName">Demo Master</b></div>
+        <div><span>بازده نمونه</span><b id="masterReturn">—</b></div>
+        <div><span>ریسک</span><b id="masterRisk">کنترل‌شده</b></div>
+        <div><span>صرافی</span><b>Demo Exchange · مجازی</b></div>
+      </div>
+      <div class="notice">این داشبورد فقط برای تست رابط و منطق دمو است. معامله واقعی، برداشت و اتصال به حساب واقعی عمداً قفل هستند.</div>
+    </section>
+    <section class="dashboard card">
+      <div class="section-head"><div><span class="eyebrow">SIMULATION</span><h2>وضعیت شبیه‌سازی</h2></div><span class="badge active-badge">زنده · دمو</span></div>
+      <div class="account-grid"><div><span>سرمایه مجازی</span><b>۱۰٬۰۰۰ USDT</b></div><div><span>سفارش واقعی</span><b>۰</b></div><div><span>وضعیت ریسک</span><b>کنترل‌شده</b></div><div><span>برداشت</span><b>قفل</b></div></div>
+    </section>
+  </main>
+  <footer>© 2026 Copy Trading Platform · Demo environment</footer>
+  <script>
+    const masters={1:['Atlas Demo','+12.4%','کم'],2:['Momentum Demo','+8.7%','متوسط'],3:['Steady Demo','+5.2%','کم']};
+    let selected=null;
+    try{selected=JSON.parse(sessionStorage.getItem('ct_selected_master')||'null');}catch(e){selected=null;}
+    const id=selected&&Number(selected.id);
+    const m=masters[id]||masters[1];
+    document.getElementById('masterName').textContent=m[0];
+    document.getElementById('masterReturn').textContent=m[1];
+    document.getElementById('masterRisk').textContent=m[2];
+    document.getElementById('title').textContent=`داشبورد ${m[0]}`;
+    document.getElementById('description').textContent=`کپی دمو برای ${m[0]} فعال شده است. تمام عملیات این صفحه شبیه‌سازی‌شده و بدون پول واقعی است.`;
+  </script>
+</body>
+</html>
