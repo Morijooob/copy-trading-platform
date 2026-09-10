@@ -4,95 +4,49 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="محیط اختصاصی تست کپی‌تریدینگ دمو" />
-  <title>Demo Dashboard v3 · Copy Trading</title>
+  <title>Demo Dashboard v4 · Copy Trading</title>
   <link rel="stylesheet" href="./styles.css?v=9" />
 </head>
 <body>
   <div class="bg"></div>
-  <header class="topbar">
-    <div class="brand"><span class="logo">CT</span><div><strong>Copy Trading</strong><small>محیط دمو</small></div></div>
-    <div class="top-actions"><span class="status"><span class="dot"></span> DEMO · بدون پول واقعی</span></div>
-  </header>
+  <header class="topbar"><div class="brand"><span class="logo">CT</span><div><strong>Copy Trading</strong><small>محیط دمو</small></div></div><div class="top-actions"><span class="status"><span class="dot"></span> DEMO · بدون پول واقعی</span></div></header>
   <main class="container">
-    <section class="hero card">
-      <div>
-        <span class="eyebrow">DEMO DASHBOARD</span>
-        <h1 id="title">محیط کپی‌تریدینگ دمو</h1>
-        <p id="description">تمام اعداد و معاملات این صفحه آزمایشی هستند.</p>
-        <div class="hero-actions">
-          <button class="primary" id="backMasters" type="button">بازگشت به مسترها</button>
-          <button class="secondary" id="homeBtn" type="button">صفحه اصلی</button>
-        </div>
-      </div>
-      <div class="hero-stat"><b id="statusText">فعال</b><span>وضعیت کپی دمو</span><small>هیچ سفارش واقعی ارسال نمی‌شود</small></div>
-    </section>
-
+    <section class="hero card"><div><span class="eyebrow">DEMO DASHBOARD</span><h1 id="title">محیط کپی‌تریدینگ دمو</h1><p id="description">تمام اعداد و معاملات این صفحه آزمایشی هستند.</p><div class="hero-actions"><button class="primary" id="backMasters" type="button">بازگشت به مسترها</button><button class="secondary" id="homeBtn" type="button">صفحه اصلی</button></div></div><div class="hero-stat"><b id="statusText">فعال</b><span>وضعیت کپی دمو</span><small>هیچ سفارش واقعی ارسال نمی‌شود</small></div></section>
     <section class="section-head"><div><span class="eyebrow">MASTER</span><h2>مستر انتخاب‌شده</h2></div><span class="badge demo">دمو فعال</span></section>
-    <section class="dashboard card">
-      <div class="account-grid">
-        <div><span>مستر</span><b id="masterName">Demo Master</b></div>
-        <div><span>بازده نمونه</span><b id="masterReturn">—</b></div>
-        <div><span>ریسک</span><b id="masterRisk">کنترل‌شده</b></div>
-        <div><span>صرافی</span><b>Demo Exchange · مجازی</b></div>
+    <section class="dashboard card"><div class="account-grid"><div><span>مستر</span><b id="masterName">Demo Master</b></div><div><span>بازده نمونه</span><b id="masterReturn">—</b></div><div><span>ریسک</span><b id="masterRisk">کنترل‌شده</b></div><div><span>صرافی</span><b>Demo Exchange · مجازی</b></div></div><div class="notice">این داشبورد فقط برای تست رابط و منطق دمو است. معامله واقعی و برداشت عمداً قفل هستند.</div></section>
+    <section class="dashboard card"><div class="section-head"><div><span class="eyebrow">CAPITAL</span><h2>سرمایه شروع دمو</h2></div><span class="badge demo">قابل تنظیم</span></div><div class="hero-actions" style="margin-top:0"><input id="capitalInput" type="number" min="1" max="100000000" step="1" value="10000" inputmode="decimal" aria-label="سرمایه شروع دمو به USDT" placeholder="مثلاً 100 یا 10" style="max-width:240px" /><button class="primary" id="applyCapital" type="button">شروع با این مقدار</button></div><div class="notice">این فقط سرمایه مجازی دمو است.</div></section>
+    <section class="dashboard card"><div class="section-head"><div><span class="eyebrow">SIMULATION</span><h2>کنترل شبیه‌سازی</h2></div><span class="badge active-badge" id="liveBadge">آماده</span></div><div class="account-grid"><div><span>سرمایه مجازی</span><b id="balance">۱۰٬۰۰۰ USDT</b></div><div><span>سفارش‌های دمو</span><b id="orders">۰</b></div><div><span>سود/زیان دمو</span><b id="pnl">۰ USDT</b></div><div><span>وضعیت</span><b id="simState">متوقف</b></div></div><div class="hero-actions" style="margin-top:18px"><button class="primary" id="startBtn" type="button">شروع شبیه‌سازی</button><button class="secondary" id="tradeBtn" type="button">اجرای معامله دمو</button><button class="secondary" id="resetBtn" type="button">بازنشانی دمو</button></div><div class="notice" id="activity">برای شروع، «شروع شبیه‌سازی» را بزنید.</div></section>
+    <section class="dashboard card"><div class="section-head"><div><span class="eyebrow">LIVE TAPE</span><h2>جریان معاملات دمو</h2></div><span class="badge demo">زنده · شبیه‌سازی</span></div><div id="tradeFeed" class="notice">هنوز معامله‌ای ثبت نشده است.</div></section>
+
+    <section class="dashboard card" id="exirConnection"><div class="section-head"><div><span class="eyebrow">SECURE EXIR</span><h2>اتصال امن حساب Exir</h2></div><span class="badge queue-badge" id="exirBadge">قفل اجرای واقعی</span></div>
+      <div class="notice">کلیدها فقط از طریق اتصال HTTPS به Backend ارسال و در Supabase Vault به‌صورت رمزنگاری‌شده نگهداری می‌شوند. این مرحله فقط اتصال و موجودی را بررسی می‌کند و هیچ سفارشی ثبت نمی‌کند.</div>
+      <div class="hero-actions" style="margin-top:14px;display:flex;flex-wrap:wrap;gap:10px">
+        <input id="exirKey" type="password" autocomplete="off" placeholder="Exir API Key" aria-label="Exir API Key" style="min-width:240px" />
+        <input id="exirSecret" type="password" autocomplete="off" placeholder="Exir API Secret" aria-label="Exir API Secret" style="min-width:240px" />
+        <label style="display:flex;align-items:center;gap:8px"><input id="tradePermission" type="checkbox" /> مجوز معامله فعال است</label>
+        <button class="primary" id="connectExir" type="button">ذخیره امن و بررسی اتصال</button>
       </div>
-      <div class="notice">این داشبورد فقط برای تست رابط و منطق دمو است. معامله واقعی، برداشت و اتصال به حساب واقعی عمداً قفل هستند.</div>
+      <div class="account-grid" style="margin-top:18px"><div><span>وضعیت اتصال</span><b id="exirState">متصل نیست</b></div><div><span>اجرای واقعی</span><b>قفل</b></div><div><span>برداشت</span><b>ممنوع</b></div><div><span>سفارش واقعی</span><b>۰</b></div></div>
+      <div class="notice" id="exirResult">هنوز حساب Exir متصل نشده است.</div>
     </section>
 
-    <section class="dashboard card">
-      <div class="section-head"><div><span class="eyebrow">CAPITAL</span><h2>سرمایه شروع دمو</h2></div><span class="badge demo">قابل تنظیم</span></div>
-      <div class="hero-actions" style="margin-top:0">
-        <input id="capitalInput" type="number" min="1" max="100000000" step="1" value="10000" inputmode="decimal" aria-label="سرمایه شروع دمو به USDT" placeholder="مثلاً 100 یا 10" style="max-width:240px" />
-        <button class="primary" id="applyCapital" type="button">شروع با این مقدار</button>
-      </div>
-      <div class="notice">مثلاً ۱۰، ۱۰۰ یا ۱۰۰۰ USDT وارد کنید. این فقط سرمایه مجازی دمو است و هیچ برداشت یا واریز واقعی انجام نمی‌شود.</div>
-    </section>
-
-    <section class="dashboard card">
-      <div class="section-head"><div><span class="eyebrow">SIMULATION</span><h2>کنترل شبیه‌سازی</h2></div><span class="badge active-badge" id="liveBadge">آماده</span></div>
-      <div class="account-grid">
-        <div><span>سرمایه مجازی</span><b id="balance">۱۰٬۰۰۰ USDT</b></div>
-        <div><span>سفارش‌های دمو</span><b id="orders">۰</b></div>
-        <div><span>سود/زیان دمو</span><b id="pnl">۰ USDT</b></div>
-        <div><span>وضعیت</span><b id="simState">متوقف</b></div>
-      </div>
-      <div class="hero-actions" style="margin-top:18px">
-        <button class="primary" id="startBtn" type="button">شروع شبیه‌سازی</button>
-        <button class="secondary" id="tradeBtn" type="button">اجرای معامله دمو</button>
-        <button class="secondary" id="resetBtn" type="button">بازنشانی دمو</button>
-      </div>
-      <div class="notice" id="activity">برای شروع، «شروع شبیه‌سازی» را بزنید. اینجا هیچ سفارش واقعی به صرافی ارسال نمی‌شود.</div>
-    </section>
-
-    <section class="dashboard card">
-      <div class="section-head"><div><span class="eyebrow">LIVE TAPE</span><h2>جریان معاملات دمو</h2></div><span class="badge demo">زنده · شبیه‌سازی</span></div>
-      <div id="tradeFeed" class="notice">هنوز معامله‌ای ثبت نشده است.</div>
-    </section>
-
-    <section class="dashboard card">
-      <div class="section-head"><div><span class="eyebrow">REAL MODE</span><h2>حساب واقعی و کیف پول</h2></div><span class="badge queue-badge">قفل</span></div>
-      <div class="account-grid">
-        <div><span>اتصال حساب واقعی</span><b>فعال نیست</b></div>
-        <div><span>کیف پول سایت</span><b>تنظیم نشده</b></div>
-        <div><span>کیف پول کاربر</span><b>تنظیم نشده</b></div>
-        <div><span>کمیسیون سایت</span><b>در انتظار تعیین نرخ</b></div>
-      </div>
-      <div class="notice">برای حالت واقعی باید Backend امن، احراز هویت، اتصال امن صرافی، مدیریت کلید API، کیف پول/حسابداری کمیسیون، ثبت تراکنش و کنترل ریسک راه‌اندازی شود. این بخش را عمداً با آدرس ساختگی یا کلید آزمایشی جعلی پر نمی‌کنیم.</div>
-    </section>
+    <section class="dashboard card"><div class="section-head"><div><span class="eyebrow">REAL MODE</span><h2>حالت واقعی</h2></div><span class="badge queue-badge">قفل</span></div><div class="account-grid"><div><span>اتصال حساب واقعی</span><b id="realConnectionState">قابل بررسی</b></div><div><span>کیف پول سایت</span><b>تنظیم نشده</b></div><div><span>کیف پول کاربر</span><b>تنظیم نشده</b></div><div><span>کمیسیون سایت</span><b>در انتظار تعیین نرخ</b></div></div><div class="notice">حتی بعد از تأیید اتصال Exir، اجرای پول واقعی تا تکمیل MFA، کنترل ریسک، Kill Switch، حسابداری، ممیزی، مانیتورینگ و تست E2E عمداً قفل می‌ماند.</div></section>
   </main>
   <footer>© 2026 Copy Trading Platform · Demo environment</footer>
-  <script>
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './supabase-config.js';
+    const supabase=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
     const masters={1:['Atlas Demo','+12.4%','کم'],2:['Momentum Demo','+8.7%','متوسط'],3:['Steady Demo','+5.2%','کم']};
     let selected=null;try{selected=JSON.parse(sessionStorage.getItem('ct_selected_master')||'null')}catch(e){selected=null}
-    const id=selected&&Number(selected.id);const m=masters[id]||masters[1];const $=x=>document.getElementById(x);
-    $('masterName').textContent=m[0];$('masterReturn').textContent=m[1];$('masterRisk').textContent=m[2];$('title').textContent=`داشبورد ${m[0]}`;$('description').textContent=`محیط اختصاصی ${m[0]} آماده تست است؛ عملیات این صفحه شبیه‌سازی‌شده و بدون پول واقعی است.`;
+    const id=selected&&Number(selected.id);const m=masters[id]||masters[1];const $=x=>document.getElementById(x);$('masterName').textContent=m[0];$('masterReturn').textContent=m[1];$('masterRisk').textContent=m[2];$('title').textContent=`داشبورد ${m[0]}`;$('description').textContent=`محیط اختصاصی ${m[0]} آماده تست است؛ عملیات این صفحه شبیه‌سازی‌شده و بدون پول واقعی است.`;
     let running=false,orders=0,pnl=0,balance=10000,startCapital=10000,timer=null;const fa=n=>String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
     function update(){ $('balance').textContent=`${fa(Math.round(balance))} USDT`;$('orders').textContent=fa(orders);$('pnl').textContent=`${pnl>=0?'+':''}${fa(Math.round(pnl))} USDT`;$('simState').textContent=running?'در حال شبیه‌سازی':'متوقف';$('liveBadge').textContent=running?'زنده · دمو':'آماده';$('startBtn').textContent=running?'توقف شبیه‌سازی':'شروع شبیه‌سازی'; }
     function addFeed(move){const row=document.createElement('div');row.style.cssText='padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)';row.textContent=`#${fa(orders)} · ${m[0]} · ${move>=0?'سود':'زیان'} ${move>=0?'+':''}${fa(move)} USDT · دمو`;const feed=$('tradeFeed');if(feed.textContent==='هنوز معامله‌ای ثبت نشده است.')feed.textContent='';feed.prepend(row)}
     function demoTrade(){if(!running){$('activity').textContent='ابتدا شبیه‌سازی را شروع کنید.';return}const moves={1:[18,-9,27],2:[31,-16,22],3:[11,8,-6]};const base=moves[id]?.[orders%3]??12;const scale=startCapital/10000;const move=Math.round(base*scale*100)/100;pnl+=move;balance=startCapital+pnl;orders++;$('activity').textContent=`معامله دمو #${fa(orders)} برای ${m[0]} اجرا شد: ${move>=0?'+':''}${fa(move)} USDT. فقط شبیه‌سازی است.`;addFeed(move);update();}
     $('applyCapital').onclick=()=>{const v=Number($('capitalInput').value);if(!Number.isFinite(v)||v<=0){$('activity').textContent='مقدار سرمایه شروع معتبر نیست.';return}running=false;clearInterval(timer);timer=null;startCapital=v;balance=v;orders=0;pnl=0;$('tradeFeed').textContent='هنوز معامله‌ای ثبت نشده است.';$('activity').textContent=`دمو با سرمایه مجازی ${fa(v)} USDT آماده شد.`;update()};
-    $('startBtn').onclick=()=>{running=!running;if(running){$('activity').textContent=`شبیه‌سازی ${m[0]} با ${fa(startCapital)} USDT شروع شد. رویدادهای دمو به‌صورت زنده نمایش داده می‌شوند.`;timer=setInterval(demoTrade,5000)}else{clearInterval(timer);timer=null;$('activity').textContent='شبیه‌سازی متوقف شد. داده‌ها برای ادامه تست حفظ شده‌اند.'}update()};
-    $('tradeBtn').onclick=demoTrade;
-    $('resetBtn').onclick=()=>{running=false;clearInterval(timer);timer=null;orders=0;pnl=0;balance=startCapital;$('tradeFeed').textContent='هنوز معامله‌ای ثبت نشده است.';$('activity').textContent=`دموی ${m[0]} بازنشانی شد. سرمایه شروع ${fa(startCapital)} USDT است.`;update()};
+    $('startBtn').onclick=()=>{running=!running;if(running){$('activity').textContent=`شبیه‌سازی ${m[0]} با ${fa(startCapital)} USDT شروع شد.`;timer=setInterval(demoTrade,5000)}else{clearInterval(timer);timer=null;$('activity').textContent='شبیه‌سازی متوقف شد.'}update()};$('tradeBtn').onclick=demoTrade;$('resetBtn').onclick=()=>{running=false;clearInterval(timer);timer=null;orders=0;pnl=0;balance=startCapital;$('tradeFeed').textContent='هنوز معامله‌ای ثبت نشده است.';$('activity').textContent=`دموی ${m[0]} بازنشانی شد.`;update()};
+    $('connectExir').onclick=async()=>{const result=$('exirResult');const key=$('exirKey').value.trim();const secret=$('exirSecret').value.trim();if(key.length<8||secret.length<8){result.textContent='API Key و API Secret معتبر وارد کنید.';return}const {data:{session}}=await supabase.auth.getSession();if(!session){result.textContent='ابتدا وارد حساب کاربری شوید.';return}$('connectExir').disabled=true;result.textContent='در حال ذخیره امن و بررسی اتصال…';try{const {data,error}=await supabase.functions.invoke('connect-exir-account',{body:{api_key:key,api_secret:secret,trade_permission:$('tradePermission').checked,withdraw_permission:false}});if(error)throw error;$('exirResult').textContent='کلیدها با موفقیت در Vault ذخیره شدند. مرحله بعدی: بررسی اتصال به Exir.';$('exirState').textContent='ثبت شد · در انتظار بررسی';if(data?.account_id){const verify=await supabase.functions.invoke('verify-exir-account',{body:{account_id:data.account_id}});if(verify.error)throw verify.error;if(verify.data?.verified){$('exirState').textContent='تأیید شد';$('realConnectionState').textContent='اتصال تأیید شد؛ اجرا قفل است';$('exirBadge').textContent='اتصال تأیید شد';$('exirResult').textContent='اتصال Exir و دریافت اطلاعات حساب/موجودی با موفقیت بررسی شد؛ هیچ سفارش واقعی ثبت نشد.'}}$('exirKey').value='';$('exirSecret').value='';}catch(e){$('exirResult').textContent='بررسی اتصال ناموفق بود. اطلاعات ورود نمایش داده نمی‌شود؛ مجوزهای API و کلیدها را بررسی کنید.';}finally{$('connectExir').disabled=false}};
     $('backMasters').onclick=()=>{window.location.href='./index.html#masters'};$('homeBtn').onclick=()=>{window.location.href='./index.html'};update();
   </script>
 </body>
