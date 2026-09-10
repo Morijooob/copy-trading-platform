@@ -14,16 +14,18 @@ for(const marker of [
   'id="masters"','id="queueBadge"','id="demoBtn"','id="real"',
   'id="authBtn"','id="authModal"','id="authSubmit"',
   'id="loginTab"','id="registerTab"','id="passwordConfirm"',
-  'styles.css?v=5','app.js?v=5'
+  'id="profileMenu"','id="topAvatar"','id="userAvatar"',
+  'styles.css?v=6','app.js?v=6'
 ]) assert.ok(html.includes(marker),`index.html missing ${marker}`);
 
 for(const marker of [
   'MAX_FOLLOWERS=2','followers:0','queue:0','followers<MAX_FOLLOWERS',
   'joined.has(id)','queued.has(id)','m.queue++','Demo Exchange',
-  'هیچ سفارش واقعی','ct_demo_account_v4','localStorage','loadDemoAccount',
-  'saveDemoAccount','showToast','setAuthError','setAuthMode',
-  "authMode==='register'",'passwordHash','crypto.subtle.digest',
-  'این مرورگر از قبل یک حساب دمو دارد','نام کاربری یا رمز عبور اشتباه است'
+  'هیچ سفارش واقعی','ct_demo_account_v4','ct_demo_session_v1','sessionStorage',
+  'localStorage','loadDemoAccount','saveDemoAccount','restoreSession',
+  'showToast','setAuthError','setAuthMode',"authMode==='register'",'passwordHash',
+  'crypto.subtle.digest','این مرورگر از قبل یک حساب دمو دارد','نام کاربری یا رمز عبور اشتباه است',
+  'برای ورود دوباره رمز عبور لازم است'
 ]) assert.ok(js.includes(marker),`app.js missing required behavior: ${marker}`);
 
 assert.ok((js.match(/followers:0/g)||[]).length>=3,'demo masters must start empty');
@@ -32,7 +34,7 @@ assert.ok(js.includes('passwordConfirm'),'registration password confirmation mis
 assert.ok(!js.includes('JSON.stringify({username,password}'),'demo password must never be stored');
 assert.ok(!js.includes("localStorage.setItem(DEMO_KEY,JSON.stringify({username,password"),'plaintext password storage must not exist');
 
-for(const marker of ['@media','.master','.dashboard','.modal','.login-btn','.toast','.form-error','.auth-tabs','.auth-tab'])
+for(const marker of ['@media','.master','.dashboard','.modal','.login-btn','.toast','.form-error','.auth-tabs','.auth-tab','.avatar','.profile-menu'])
   assert.ok(css.includes(marker),`styles.css missing ${marker}`);
 
 execFileSync(process.execPath,['--check',new URL('./app.js',import.meta.url).pathname],{stdio:'pipe'});
