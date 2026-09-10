@@ -41,8 +41,7 @@ function loadDemoAccount(){
   }
 }
 function saveDemoAccount(account){
-  try{localStorage.setItem(DEMO_KEY,JSON.stringify(account));return true;}catch(_){return false;}
-}
+  try{localStorage.setItem(DEMO_KEY,JSON.stringify(account));return true;}catch(_){return false;}}
 function getSessionUsername(){try{return sessionStorage.getItem(SESSION_KEY)||'';}catch(_){return '';}}
 function setSession(username){try{sessionStorage.setItem(SESSION_KEY,username);return true;}catch(_){return false;}}
 function clearSession(){try{sessionStorage.removeItem(SESSION_KEY);}catch(_){} }
@@ -86,7 +85,16 @@ function setAuthMode(mode){
 }
 function openAuth(mode='login'){setAuthMode(mode);authModal.classList.remove('hidden');setTimeout(()=>document.querySelector('#username').focus(),0);}
 function closeAuth(){authModal.classList.add('hidden');setAuthError('');}
-function setDemoActive(){document.querySelector('#exchange').textContent='Demo Exchange · مجازی';document.querySelector('#mode').textContent='دمو فعال';}
+function setDemoActive(){
+  document.querySelector('#exchange').textContent='Demo Exchange · مجازی';
+  document.querySelector('#mode').textContent='دمو فعال';
+  document.querySelector('#mode').classList.add('demo');
+}
+function enterDemo(){
+  setDemoActive();
+  showToast('نسخه دمو فعال شد؛ هیچ سفارش واقعی ارسال نمی‌شود.');
+  document.querySelector('#masters').scrollIntoView({behavior:'smooth',block:'start'});
+}
 function render(){
   mastersEl.innerHTML='';
   masters.forEach(m=>{
@@ -116,7 +124,7 @@ function follow(id){
   render();
 }
 
-document.querySelector('#demoBtn').onclick=()=>{if(!demoAccount){openAuth('login');return;}setDemoActive();showToast('Demo Exchange فعال شد؛ حالا یک مستر آزمایشی را انتخاب کنید.');};
+document.querySelector('#demoBtn').onclick=enterDemo;
 document.querySelector('#authBtn').onclick=()=>openAuth('login');
 document.querySelector('#heroAuthBtn').onclick=()=>openAuth('register');
 document.querySelector('#closeAuth').onclick=closeAuth;
@@ -124,7 +132,7 @@ document.querySelector('#loginTab').onclick=()=>setAuthMode('login');
 document.querySelector('#registerTab').onclick=()=>setAuthMode('register');
 authModal.onclick=e=>{if(e.target===authModal)closeAuth();};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!authModal.classList.contains('hidden'))closeAuth();});
-document.querySelector('#authSubmit').onclick=async()=>{
+authModal.querySelector('#authSubmit').onclick=async()=>{
   const username=document.querySelector('#username').value.trim();
   const email=document.querySelector('#email').value.trim().toLowerCase();
   const password=document.querySelector('#password').value;
@@ -141,7 +149,7 @@ document.querySelector('#authSubmit').onclick=async()=>{
     if(!setSession(username)){setAuthError('ساخت نشست دمو در این مرورگر ممکن نیست.');return;}
     demoAccount=account;
     closeAuth();
-    setDemoActive();
+    enterDemo();
     showToast(`حساب دمو برای ${username} ساخته شد. ایمیل ثبت شد؛ تأیید واقعی ایمیل بعد از راه‌اندازی Backend انجام می‌شود.`);
     render();
     return;
@@ -153,7 +161,7 @@ document.querySelector('#authSubmit').onclick=async()=>{
   if(!setSession(username)){setAuthError('ورود دمو در این مرورگر ممکن نیست.');return;}
   demoAccount=account;
   closeAuth();
-  setDemoActive();
+  enterDemo();
   showToast(`خوش آمدید ${username}؛ حساب دمو فعال شد.`);
   render();
 };
