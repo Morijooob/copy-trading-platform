@@ -3,11 +3,12 @@ import { CommissionEngine } from './commission.js';
 import { OperationalSafety } from './operational-safety.js';
 
 export class RealTradingService {
-  constructor({ security = {}, safety = {}, commissionRateBps = 500, exchange } = {}) {
+  constructor({ security = {}, safety = {}, commissionRateBps = 500, exchange, enableRealExecution = false } = {}) {
     this.gate = new ProductionSecurityGate(security);
     this.safety = new OperationalSafety(safety);
     this.commission = new CommissionEngine({ rateBps: commissionRateBps });
     this.exchange = exchange;
+    this.enableRealExecution = enableRealExecution === true;
     this.seen = new Set();
   }
 
@@ -16,7 +17,7 @@ export class RealTradingService {
       ...this.gate.publicState(),
       safety: this.safety.publicState(),
       commission: this.commission.publicState(),
-      realExecution: false
+      realExecution: this.enableRealExecution
     };
   }
 
@@ -24,6 +25,7 @@ export class RealTradingService {
     if (!idempotencyKey) throw new Error('idempotencyKey required');
     if (this.seen.has(idempotencyKey)) return { duplicate: true };
     this.gate.assertReadyForRealMoney();
+    if (!this.enableRealExecution) throw new Error('real execution is explicitly disabled');
     if (!this.exchange) throw new Error('exchange adapter not configured');
     if (!follower?.id) throw new Error('follower required');
     if (!order?.symbol || !['buy', 'sell'].includes(order.side)) throw new Error('invalid order');
