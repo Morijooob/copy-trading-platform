@@ -20,7 +20,7 @@ for(const marker of [
 for(const marker of [
   'MAX_FOLLOWERS=2','followers:0','queue:0','followers<MAX_FOLLOWERS',
   'joined.has(id)','queued.has(id)','m.queue++','Demo Exchange',
-  'هیچ سفارش واقعی','ct_demo_account_v5','ct_demo_session_v1','sessionStorage',
+  'هیچ سفارش واقعی','ct_demo_account_v6','ct_demo_session_v2','sessionStorage',
   'localStorage','loadDemoAccount','saveDemoAccount','restoreSession',
   'showToast','setAuthError','setAuthMode',"authMode==='register'",'passwordHash',
   'crypto.subtle.digest','emailVerified:false','^[^\\s@]+@[^\s@]+\\.[^\s@]+$',
