@@ -14,7 +14,7 @@ for(const marker of [
   'id="authBtn"','id="authModal"','id="authSubmit"',
   'id="loginTab"','id="registerTab"','id="email"','id="passwordConfirm"',
   'id="profileMenu"','id="topAvatar"','id="userAvatar"',
-  'styles.css?v=8','app.js?v=8'
+  'styles.css?v=8','app.js?v=9'
 ]) assert.ok(html.includes(marker),`index.html missing ${marker}`);
 
 for(const marker of [
@@ -23,7 +23,7 @@ for(const marker of [
   'هیچ سفارش واقعی','ct_demo_account_v5','ct_demo_session_v1','sessionStorage',
   'localStorage','loadDemoAccount','saveDemoAccount','restoreSession',
   'showToast','setAuthError','setAuthMode',"authMode==='register'",'passwordHash',
-  'crypto.subtle.digest','emailVerified:false','^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
+  'crypto.subtle.digest','emailVerified:false','^[^\\s@]+@[^\s@]+\\.[^\s@]+$',
   'این مرورگر از قبل یک حساب دمو دارد','نام کاربری یا رمز عبور اشتباه است',
   'el.addEventListener(\'click\',activate)','keydown','tabIndex=0'
 ]) assert.ok(js.includes(marker),`app.js missing required behavior: ${marker}`);
