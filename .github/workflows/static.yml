@@ -1,5 +1,6 @@
 name: Deploy Static HTML
 
+# Force a fresh Pages deployment after site/auth changes.
 on:
   push:
     branches: [main]
