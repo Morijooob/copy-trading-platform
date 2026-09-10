@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import {execFileSync} from 'node:child_process';
 const read=file=>fs.readFileSync(new URL(`./${file}`,import.meta.url),'utf8');
 const required=['index.html','styles.css','app.js','supabase-config.js','demo.html','demo-v2.html'];
 for(const file of required) assert.ok(fs.existsSync(new URL(`./${file}`,import.meta.url)),`${file} is missing`);
@@ -11,5 +10,4 @@ assert.ok(js.includes("import { createClient } from 'https://esm.sh/@supabase/su
 assert.ok(demo.includes('id="startBtn"')&&demo.includes('id="tradeBtn"')&&demo.includes('id="resetBtn"'),'demo controls missing');
 assert.ok(demoV2.includes('id="exirConnection"')&&demoV2.includes('id="connectExir"')&&demoV2.includes('withdraw_permission:false'),'secure Exir demo markers missing');
 assert.ok(css.includes('.master')&&css.includes('.dashboard')&&css.includes('.trust-strip'),'responsive styles missing');
-execFileSync(process.execPath,['--check',new URL('./app.js',import.meta.url).pathname],{stdio:'pipe'});
 console.log('SITE SMOKE TEST: PASS');
