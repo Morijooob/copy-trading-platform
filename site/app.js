@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './supabase-config.js';
 
-const APP_VERSION='v21';
+const APP_VERSION='v22';
 const MAX_FOLLOWERS=2;
 const supabase=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 let masters=[];
@@ -19,7 +19,7 @@ function openAuth(mode='login'){setAuthMode(mode);authModal.classList.remove('hi
 function closeAuth(){authModal.classList.add('hidden');setAuthError('');}
 function setDemoActive(){$('#exchange').textContent='Demo Exchange · مجازی';$('#mode').textContent='دمو فعال';$('#mode').classList.add('demo');$('#real').textContent='قفل';}
 function goToMasters(){window.location.hash='masters';$('#masters').scrollIntoView({behavior:'smooth',block:'start'});}
-function openDemoDashboard(m){try{sessionStorage.setItem('ct_selected_master',JSON.stringify({id:m?.id||'',name:m?.name||'Atlas Demo',return:m?.return||'+12.4%',risk:m?.risk||'کم'}));}catch(e){}window.location.href='./demo-v2.html?v=21';}
+function openDemoDashboard(m){const demoId=Math.max(1,masters.indexOf(m)+1);try{sessionStorage.setItem('ct_selected_master',JSON.stringify({id:demoId,name:m?.name||'Atlas Demo',return:m?.return||'+12.4%',risk:m?.risk||'کم'}));}catch(e){}window.location.href='./demo-v2.html?v=22';}
 function enterDemo(){setDemoActive();const first=masters[0]||{id:'',name:'Atlas Demo',return:'+12.4%',risk:'کم'};openDemoDashboard(first);}
 function render(){mastersEl.innerHTML='';masters.forEach(m=>{const full=m.followers>=m.max_followers,j=joined.has(m.id),q=queued.has(m.id);const el=document.createElement('article');el.className='master card';el.tabIndex=0;let label='شروع کپی دمو';if(full)label='ورود به صف انتظار';if(j)label='کپی دمو فعال است';if(q)label='در صف انتظار هستید';el.innerHTML=`<span class="eyebrow">DEMO MASTER</span><h3>${m.name}</h3><p>${m.desc||''}</p><div class="metrics"><span>بازده ${m.return||'—'}</span><span>ریسک ${m.risk||'—'}</span></div><div class="capacity"><span>ظرفیت فعال: ${fa(m.max_followers)} نفر</span><span>${full?'صف فعال است':'ظرفیت موجود'}</span></div><button type="button" ${j||q?'disabled':''}>${label}</button>`;const b=el.querySelector('button');const activate=()=>{if(!j&&!q)follow(m.id);};el.addEventListener('click',activate);el.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target===el){e.preventDefault();activate();}});b.addEventListener('click',e=>{e.stopPropagation();activate();});mastersEl.appendChild(el);});renderAccount();}
 async function loadMasters(){const {data,error}=await supabase.from('masters').select('id,name,mode,return_pct,risk_level,description,max_followers,active').eq('active',true).eq('mode','demo').order('created_at');if(error)throw error;masters=(data||[]).map(m=>({id:m.id,name:m.name,return:m.return_pct==null?'—':`${Number(m.return_pct).toFixed(1)}%`,risk:m.risk_level||'—',desc:m.description||'',followers:0,queue:0,max_followers:m.max_followers||MAX_FOLLOWERS}));await loadMyFollows();render();}
