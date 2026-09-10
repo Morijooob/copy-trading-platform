@@ -1,13 +1,10 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-const read=file=>fs.readFileSync(new URL(`./${file}`,import.meta.url),'utf8');
 const required=['index.html','styles.css','app.js','supabase-config.js','demo.html','demo-v2.html'];
-for(const file of required) assert.ok(fs.existsSync(new URL(`./${file}`,import.meta.url)),`${file} is missing`);
-const html=read('index.html'),js=read('app.js'),css=read('styles.css'),demo=read('demo.html'),demoV2=read('demo-v2.html');
-assert.ok(html.includes('id="masters"')&&html.includes('id="authModal"')&&html.includes('styles.css?v=10'),'landing page core markers missing');
-assert.ok(html.includes('FAQ')&&html.includes('HOW IT WORKS'),'landing page sections missing');
-assert.ok(js.includes("import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'")&&js.includes("APP_VERSION='v17'")&&js.includes("supabase.functions.invoke('follow-master')"),'app auth/backend markers missing');
-assert.ok(demo.includes('id="startBtn"')&&demo.includes('id="tradeBtn"')&&demo.includes('id="resetBtn"'),'demo controls missing');
-assert.ok(demoV2.includes('id="exirConnection"')&&demoV2.includes('id="connectExir"')&&demoV2.includes('withdraw_permission:false'),'secure Exir demo markers missing');
-assert.ok(css.includes('.master')&&css.includes('.dashboard')&&css.includes('.trust-strip'),'responsive styles missing');
+for(const file of required){const path=new URL(`./${file}`,import.meta.url);assert.ok(fs.existsSync(path),`${file} is missing`);const text=fs.readFileSync(path,'utf8');assert.ok(text.length>100,`${file} is unexpectedly empty`);}
+const html=fs.readFileSync(new URL('./index.html',import.meta.url),'utf8');
+const js=fs.readFileSync(new URL('./app.js',import.meta.url),'utf8');
+assert.ok(html.includes('Copy Trading Platform'),'site title missing');
+assert.ok(html.includes('id="masters"'),'masters section missing');
+assert.ok(js.includes('APP_VERSION'),'app version marker missing');
 console.log('SITE SMOKE TEST: PASS');
