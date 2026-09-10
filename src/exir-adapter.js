@@ -19,12 +19,14 @@ export class ExirAdapter {
   }
 
   async request(method, path, body) {
+    const normalizedMethod = method.toUpperCase();
+    if (normalizedMethod !== "GET") throw new Error("Exir adapter is read-only");
     if (!path.startsWith("/v2/")) throw new Error("Exir path must start with /v2/");
     const expires = Math.floor(Date.now() / 1000) + 30;
     const bodyText = body === undefined ? "" : JSON.stringify(body);
     const headers = {
       "api-key": this.apiKey,
-      "api-signature": this.signature(method, path, expires, bodyText),
+      "api-signature": this.signature(normalizedMethod, path, expires, bodyText),
       "api-expires": String(expires),
       "content-type": "application/json"
     };
@@ -32,7 +34,7 @@ export class ExirAdapter {
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
-        method: method.toUpperCase(),
+        method: normalizedMethod,
         headers,
         body: body === undefined ? undefined : bodyText,
         signal: controller.signal
