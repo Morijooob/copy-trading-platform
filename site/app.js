@@ -6,17 +6,58 @@ const masters=[
 ];
 const joined=new Set();
 const queued=new Set();
-let demoAccount=JSON.parse(localStorage.getItem('ct_demo_account')||'null');
+const DEMO_KEY='ct_demo_account_v3';
+let demoAccount=null;
 const mastersEl=document.querySelector('#masters');
 const authModal=document.querySelector('#authModal');
+const authError=document.querySelector('#authError');
+const toast=document.querySelector('#toast');
+let toastTimer=null;
+
 function fa(n){return String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);}
+function showToast(message){
+  clearTimeout(toastTimer);
+  toast.textContent=message;
+  toast.classList.add('show');
+  toastTimer=setTimeout(()=>toast.classList.remove('show'),3200);
+}
+function setAuthError(message=''){authError.textContent=message;authError.classList.toggle('show',Boolean(message));}
+function loadDemoAccount(){
+  try{
+    const raw=localStorage.getItem(DEMO_KEY);
+    if(!raw)return null;
+    const parsed=JSON.parse(raw);
+    return parsed&&typeof parsed.username==='string'?parsed:null;
+  }catch(_){
+    try{localStorage.removeItem(DEMO_KEY);}catch(__){}
+    return null;
+  }
+}
+function saveDemoAccount(account){
+  try{localStorage.setItem(DEMO_KEY,JSON.stringify(account));return true;}catch(_){return false;}
+}
 function renderAccount(){
   const card=document.querySelector('#userCard');
-  if(demoAccount){card.classList.remove('hidden');document.querySelector('#userName').textContent=demoAccount.username;document.querySelector('#userState').textContent='حساب دمو فعال است';document.querySelector('#authBtn').textContent='حساب من';}
-  else{card.classList.add('hidden');document.querySelector('#authBtn').textContent='ورود / ثبت‌نام';}
+  if(demoAccount){
+    card.classList.remove('hidden');
+    document.querySelector('#userName').textContent=demoAccount.username;
+    document.querySelector('#userState').textContent='حساب دمو فعال است · بدون پول واقعی';
+    document.querySelector('#authBtn').textContent='حساب دمو';
+  }else{
+    card.classList.add('hidden');
+    document.querySelector('#authBtn').textContent='ثبت‌نام / ورود دمو';
+  }
 }
-function openAuth(){authModal.classList.remove('hidden');document.querySelector('#username').focus();}
-function closeAuth(){authModal.classList.add('hidden');}
+function openAuth(){
+  setAuthError('');
+  authModal.classList.remove('hidden');
+  setTimeout(()=>document.querySelector('#username').focus(),0);
+}
+function closeAuth(){authModal.classList.add('hidden');setAuthError('');}
+function setDemoActive(){
+  document.querySelector('#exchange').textContent='Demo Exchange';
+  document.querySelector('#mode').textContent='دمو فعال';
+}
 function render(){
   mastersEl.innerHTML='';
   masters.forEach(m=>{
@@ -40,47 +81,56 @@ function render(){
 function follow(id){
   if(!demoAccount){openAuth();return;}
   const m=masters.find(x=>x.id===id);
-  if(!m||joined.has(id)||queued.has(id)) return;
+  if(!m||joined.has(id)||queued.has(id))return;
   if(m.followers<MAX_FOLLOWERS){
     m.followers++;
     joined.add(id);
-    document.querySelector('#exchange').textContent='Demo Exchange';
-    document.querySelector('#mode').textContent='دمو فعال';
-    alert(`کپی دمو برای ${m.name} فعال شد. هیچ سفارش واقعی ارسال نمی‌شود.`);
+    setDemoActive();
+    showToast(`کپی دمو برای ${m.name} فعال شد. هیچ سفارش واقعی ارسال نمی‌شود.`);
   }else{
     m.queue++;
     queued.add(id);
-    alert(`ظرفیت ${m.name} پر است؛ شما در صف انتظار شماره ${fa(m.queue)} قرار گرفتید.`);
+    setDemoActive();
+    showToast(`ظرفیت ${m.name} پر است؛ شما در صف انتظار شماره ${fa(m.queue)} قرار گرفتید.`);
   }
   render();
 }
+
 document.querySelector('#demoBtn').onclick=()=>{
   if(!demoAccount){openAuth();return;}
-  document.querySelector('#exchange').textContent='Demo Exchange';
-  document.querySelector('#mode').textContent='دمو فعال';
-  alert('محیط دمو فعال شد؛ هیچ سفارش واقعی ارسال نمی‌شود. حالا می‌توانید یک مستر را انتخاب کنید.');
+  setDemoActive();
+  showToast('محیط دمو فعال شد. حالا یک مستر آزمایشی را انتخاب کنید.');
 };
 document.querySelector('#authBtn').onclick=openAuth;
 document.querySelector('#heroAuthBtn').onclick=openAuth;
 document.querySelector('#closeAuth').onclick=closeAuth;
-document.querySelector('#authModal').onclick=e=>{if(e.target===authModal)closeAuth();};
+authModal.onclick=e=>{if(e.target===authModal)closeAuth();};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!authModal.classList.contains('hidden'))closeAuth();});
 document.querySelector('#authSubmit').onclick=()=>{
   const username=document.querySelector('#username').value.trim();
   const password=document.querySelector('#password').value;
-  if(username.length<3||password.length<4){alert('نام کاربری حداقل ۳ و رمز عبور حداقل ۴ کاراکتر باشد.');return;}
-  demoAccount={username};
-  localStorage.setItem('ct_demo_account',JSON.stringify(demoAccount));
+  setAuthError('');
+  if(username.length<3){setAuthError('نام کاربری باید حداقل ۳ کاراکتر باشد.');return;}
+  if(password.length<4){setAuthError('رمز دمو باید حداقل ۴ کاراکتر باشد.');return;}
+  const account={username};
+  if(!saveDemoAccount(account)){setAuthError('ذخیره حساب دمو در این مرورگر ممکن نیست. حالت خصوصی/فضای ذخیره‌سازی مرورگر را بررسی کنید.');return;}
+  demoAccount=account;
   closeAuth();
-  document.querySelector('#exchange').textContent='Demo Exchange';
-  document.querySelector('#mode').textContent='دمو فعال';
-  alert(`خوش آمدید ${username}؛ حساب دمو شما ساخته شد.`);
+  setDemoActive();
+  showToast(`خوش آمدید ${username}؛ حساب دمو آماده است.`);
   render();
 };
 document.querySelector('#logoutBtn').onclick=()=>{
-  demoAccount=null;localStorage.removeItem('ct_demo_account');
-  joined.clear();queued.clear();masters.forEach(m=>{m.followers=0;m.queue=0;});
+  demoAccount=null;
+  try{localStorage.removeItem(DEMO_KEY);}catch(_){ }
+  joined.clear();
+  queued.clear();
+  masters.forEach(m=>{m.followers=0;m.queue=0;});
   document.querySelector('#exchange').textContent='متصل نیست';
-  document.querySelector('#mode').textContent='دمو';
+  document.querySelector('#mode').textContent='دمو خاموش';
   render();
+  showToast('از حساب دمو خارج شدید.');
 };
+
+demoAccount=loadDemoAccount();
 render();
