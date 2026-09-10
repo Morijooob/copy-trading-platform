@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="پلتفرم کپی‌تریدینگ — محیط دمو و تست کنترل‌شده" />
   <title>Copy Trading Platform</title>
-  <link rel="stylesheet" href="./styles.css?v=8" />
+  <link rel="stylesheet" href="./styles.css?v=9" />
 </head>
 <body>
   <div class="bg"></div>
@@ -20,13 +20,13 @@
   <main class="container">
     <section class="hero card"><div><span class="eyebrow">DEMO FIRST · NO REAL MONEY</span><h1>قبل از پول واقعی، همه‌چیز را تست می‌کنیم.</h1><p>عضو دمو شوید، محیط را فعال کنید و مسترهای آزمایشی را بدون هیچ سفارش واقعی بررسی کنید. اتصال واقعی صرافی و برداشت فعلاً قفل است.</p><div class="hero-actions"><button id="demoBtn" class="primary" type="button">شروع تست دمو</button><button id="heroAuthBtn" class="secondary" type="button">ثبت‌نام / ورود دمو</button></div></div><div class="hero-stat"><b>۲</b><span>ظرفیت همزمان هر مستر</span><small>نفر سوم وارد صف می‌شود</small></div></section>
     <section id="userCard" class="user-card card hidden"><div class="profile-main"><span id="userAvatar" class="avatar avatar-large" aria-hidden="true"><span>👤</span></span><div><span class="eyebrow">DEMO ACCOUNT</span><strong id="userName">مهمان</strong><small id="userState">برای شروع دمو وارد شوید</small></div></div><button id="logoutBtn" class="secondary" type="button">خروج از حساب</button></section>
-    <section class="section-head"><div><span class="eyebrow">MASTERS</span><h2>مسترهای آزمایشی</h2></div><span id="queueBadge" class="badge">صف کل: ۰</span></section>
+    <section class="section-head"><div><span class="eyebrow">MASTERS</span><h2>مسترهای آزمایشی</h2></div><div class="live-counts"><span id="activeBadge" class="badge active-badge">فعال: ۰</span><span id="queueBadge" class="badge queue-badge">در صف: ۰</span></div></section>
     <section id="masters" class="grid"></section>
     <section class="dashboard card"><div class="section-head"><div><span class="eyebrow">ACCOUNT</span><h2>وضعیت حساب</h2></div><span id="mode" class="badge demo">دمو خاموش</span></div><div class="account-grid"><div><span>اتصال صرافی</span><b id="exchange">Demo Exchange · مجازی</b></div><div><span>معامله واقعی</span><b id="real">قفل</b></div><div><span>ریسک</span><b>کنترل‌شده</b></div></div><div class="notice">این نسخه عمداً فقط از Demo Exchange مجازی استفاده می‌کند و هیچ پول واقعی جابه‌جا نمی‌کند. کلید API در رابط نمایش داده نمی‌شود و معامله واقعی تا تکمیل احراز هویت، بک‌اند امن، کنترل ریسک و تست نهایی قفل می‌ماند.</div></section>
   </main>
   <div id="authModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle"><div class="modal-box card"><button id="closeAuth" class="close" aria-label="بستن" type="button">×</button><span class="eyebrow">DEMO ACCOUNT</span><h2 id="authTitle">ورود به حساب دمو</h2><div class="auth-tabs" role="tablist" aria-label="احراز هویت دمو"><button id="loginTab" class="auth-tab active" type="button">ورود</button><button id="registerTab" class="auth-tab" type="button">ثبت‌نام</button></div><p id="authDescription">اگر قبلاً حساب دمو ساخته‌اید، نام کاربری و رمزتان را وارد کنید.</p><input id="username" placeholder="نام کاربری" autocomplete="username" maxlength="30" /><input id="email" class="hidden" type="email" placeholder="ایمیل" autocomplete="email" maxlength="120" /><input id="password" type="password" placeholder="رمز عبور" autocomplete="current-password" maxlength="64" /><input id="passwordConfirm" class="hidden" type="password" placeholder="تکرار رمز عبور" autocomplete="new-password" maxlength="64" /><button id="authSubmit" class="primary full" type="button">ورود به حساب دمو</button><div id="authError" class="form-error" role="alert"></div><small id="authHint">در ثبت‌نام دمو، ایمیل برای آماده‌سازی احراز هویت آینده دریافت می‌شود؛ ارسال واقعی ایمیل تا راه‌اندازی Backend امن فعال نیست.</small></div></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <footer>© 2026 Copy Trading Platform · Demo environment</footer>
-  <script src="./app.js?v=9"></script>
+  <script src="./app.js?v=10"></script>
 </body>
 </html>
