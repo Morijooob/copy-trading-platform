@@ -17,7 +17,7 @@ assert.throws(() => ledger.debit('u1', 'USDT', 5000, 'bad'), /insufficient balan
 
 const blocked = new RealTradingService({ exchange: { order: async () => ({ id: 'x' }) } });
 assert.equal(blocked.state().readyForRealMoney, false);
-await assert.rejects(() => blocked.copyMasterOrder({ idempotencyKey: 'x', follower: { id: 'u1' }, order: { symbol: 'btc-usdt', side: 'buy', size: 1, type: 'market' } }), /real-money trading blocked/);
+await assert.rejects(() => blocked.copyMasterOrder({ idempotencyKey: 'x', follower: { id: 'u1' }, order: { symbol: 'btc-usdt', side: 'buy', quantity: 1, price: 100 } }), /real-money trading blocked/);
 
 let calls = 0;
 const ready = new RealTradingService({
@@ -26,13 +26,27 @@ const ready = new RealTradingService({
     twoFactorForRealTrading: true, serverSideSecretStore: true, withdrawalsDisabled: true,
     killSwitch: true, riskLimits: true, idempotency: true, auditIntegrity: true, monitoringAndAlerts: true
   },
+  enableRealExecution: true,
   exchange: { order: async (order) => { calls++; return { id: 'ok', ...order }; } }
 });
-const order = { symbol: 'btc-usdt', side: 'buy', size: 1, type: 'market' };
+const order = { symbol: 'btc-usdt', side: 'buy', quantity: 1, price: 100 };
 const first = await ready.copyMasterOrder({ idempotencyKey: 'same', follower: { id: 'u1' }, order });
 assert.equal(first.exchangeOrder.id, 'ok');
 assert.equal(calls, 1);
 const duplicate = await ready.copyMasterOrder({ idempotencyKey: 'same', follower: { id: 'u1' }, order });
 assert.equal(duplicate.duplicate, true);
 assert.equal(calls, 1);
+
+const safetyBlocked = new RealTradingService({
+  security: {
+    backendOnlyExecution: true, authenticatedSessions: true, secureCookies: true,
+    twoFactorForRealTrading: true, serverSideSecretStore: true, withdrawalsDisabled: true,
+    killSwitch: true, riskLimits: true, idempotency: true, auditIntegrity: true, monitoringAndAlerts: true
+  },
+  enableRealExecution: true,
+  safety: { killSwitch: true },
+  exchange: { order: async () => ({ id: 'must-not-run' }) }
+});
+await assert.rejects(() => safetyBlocked.copyMasterOrder({ idempotencyKey: 'blocked', follower: { id: 'u1' }, order }), /execution blocked: KILL_SWITCH/);
+
 console.log('REAL MONEY CORE: ALL TESTS PASSED');
