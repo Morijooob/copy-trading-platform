@@ -6,8 +6,9 @@ const masters=[
 ];
 const joined=new Set();
 const queued=new Set();
-const DEMO_KEY='ct_demo_account_v3';
+const DEMO_KEY='ct_demo_account_v4';
 let demoAccount=null;
+let authMode='login';
 const mastersEl=document.querySelector('#masters');
 const authModal=document.querySelector('#authModal');
 const authError=document.querySelector('#authError');
@@ -22,12 +23,17 @@ function showToast(message){
   toastTimer=setTimeout(()=>toast.classList.remove('show'),3200);
 }
 function setAuthError(message=''){authError.textContent=message;authError.classList.toggle('show',Boolean(message));}
+async function hashPassword(password){
+  const data=new TextEncoder().encode(password);
+  const digest=await crypto.subtle.digest('SHA-256',data);
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 function loadDemoAccount(){
   try{
     const raw=localStorage.getItem(DEMO_KEY);
     if(!raw)return null;
     const parsed=JSON.parse(raw);
-    return parsed&&typeof parsed.username==='string'?parsed:null;
+    return parsed&&typeof parsed.username==='string'&&typeof parsed.passwordHash==='string'?parsed:null;
   }catch(_){
     try{localStorage.removeItem(DEMO_KEY);}catch(__){}
     return null;
@@ -48,8 +54,20 @@ function renderAccount(){
     document.querySelector('#authBtn').textContent='ثبت‌نام / ورود دمو';
   }
 }
-function openAuth(){
+function setAuthMode(mode){
+  authMode=mode;
+  const login=mode==='login';
+  document.querySelector('#loginTab').classList.toggle('active',login);
+  document.querySelector('#registerTab').classList.toggle('active',!login);
+  document.querySelector('#authTitle').textContent=login?'ورود به حساب دمو':'ثبت‌نام حساب دمو';
+  document.querySelector('#authDescription').textContent=login?'اگر قبلاً حساب دمو ساخته‌اید، نام کاربری و رمزتان را وارد کنید.':'برای ساخت حساب دمو فقط یک نام کاربری و یک رمز عبور لازم است.';
+  document.querySelector('#passwordConfirm').classList.toggle('hidden',login);
+  document.querySelector('#password').setAttribute('autocomplete',login?'current-password':'new-password');
+  document.querySelector('#authSubmit').textContent=login?'ورود به حساب دمو':'ساخت حساب دمو';
   setAuthError('');
+}
+function openAuth(mode='login'){
+  setAuthMode(mode);
   authModal.classList.remove('hidden');
   setTimeout(()=>document.querySelector('#username').focus(),0);
 }
@@ -79,7 +97,7 @@ function render(){
   renderAccount();
 }
 function follow(id){
-  if(!demoAccount){openAuth();return;}
+  if(!demoAccount){openAuth('login');return;}
   const m=masters.find(x=>x.id===id);
   if(!m||joined.has(id)||queued.has(id))return;
   if(m.followers<MAX_FOLLOWERS){
@@ -97,32 +115,49 @@ function follow(id){
 }
 
 document.querySelector('#demoBtn').onclick=()=>{
-  if(!demoAccount){openAuth();return;}
+  if(!demoAccount){openAuth('login');return;}
   setDemoActive();
   showToast('محیط دمو فعال شد. حالا یک مستر آزمایشی را انتخاب کنید.');
 };
-document.querySelector('#authBtn').onclick=openAuth;
-document.querySelector('#heroAuthBtn').onclick=openAuth;
+document.querySelector('#authBtn').onclick=()=>openAuth('login');
+document.querySelector('#heroAuthBtn').onclick=()=>openAuth('register');
 document.querySelector('#closeAuth').onclick=closeAuth;
+document.querySelector('#loginTab').onclick=()=>setAuthMode('login');
+document.querySelector('#registerTab').onclick=()=>setAuthMode('register');
 authModal.onclick=e=>{if(e.target===authModal)closeAuth();};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!authModal.classList.contains('hidden'))closeAuth();});
-document.querySelector('#authSubmit').onclick=()=>{
+document.querySelector('#authSubmit').onclick=async()=>{
   const username=document.querySelector('#username').value.trim();
   const password=document.querySelector('#password').value;
+  const confirm=document.querySelector('#passwordConfirm').value;
   setAuthError('');
   if(username.length<3){setAuthError('نام کاربری باید حداقل ۳ کاراکتر باشد.');return;}
-  if(password.length<4){setAuthError('رمز دمو باید حداقل ۴ کاراکتر باشد.');return;}
-  const account={username};
-  if(!saveDemoAccount(account)){setAuthError('ذخیره حساب دمو در این مرورگر ممکن نیست. حالت خصوصی/فضای ذخیره‌سازی مرورگر را بررسی کنید.');return;}
+  if(password.length<4){setAuthError('رمز عبور باید حداقل ۴ کاراکتر باشد.');return;}
+  if(authMode==='register'){
+    if(password!==confirm){setAuthError('تکرار رمز عبور با رمز اصلی یکسان نیست.');return;}
+    if(loadDemoAccount()){setAuthError('این مرورگر از قبل یک حساب دمو دارد. از بخش ورود استفاده کنید.');return;}
+    const account={username,passwordHash:await hashPassword(password)};
+    if(!saveDemoAccount(account)){setAuthError('ذخیره حساب دمو در این مرورگر ممکن نیست.');return;}
+    demoAccount=account;
+    closeAuth();
+    setDemoActive();
+    showToast(`حساب دمو برای ${username} ساخته شد؛ هیچ سفارش واقعی ارسال نمی‌شود.`);
+    render();
+    return;
+  }
+  const account=loadDemoAccount();
+  if(!account){setAuthError('حساب دمو پیدا نشد. ابتدا ثبت‌نام کنید.');return;}
+  const passwordHash=await hashPassword(password);
+  if(account.username!==username||account.passwordHash!==passwordHash){setAuthError('نام کاربری یا رمز عبور اشتباه است.');return;}
   demoAccount=account;
   closeAuth();
   setDemoActive();
-  showToast(`خوش آمدید ${username}؛ حساب دمو آماده است.`);
+  showToast(`خوش آمدید ${username}؛ حساب دمو فعال شد.`);
   render();
 };
 document.querySelector('#logoutBtn').onclick=()=>{
   demoAccount=null;
-  try{localStorage.removeItem(DEMO_KEY);}catch(_){ }
+  try{localStorage.removeItem('ct_demo_session_v1');}catch(_){ }
   joined.clear();
   queued.clear();
   masters.forEach(m=>{m.followers=0;m.queue=0;});
