@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="پلتفرم کپی‌تریدینگ — ابتدا دمو، سپس معامله واقعی با کنترل ریسک" />
+  <title>Copy Trading Platform</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="bg"></div>
+  <header class="topbar">
+    <div class="brand"><span class="logo">CT</span><div><strong>Copy Trading</strong><small>کنترل‌شده و مرحله‌ای</small></div></div>
+    <div class="status"><span class="dot"></span> سیستم آنلاین</div>
+  </header>
+
+  <main class="container">
+    <section class="hero card">
+      <div>
+        <span class="eyebrow">DEMO FIRST</span>
+        <h1>کپی‌تریدینگ بدون عجله برای پول واقعی</h1>
+        <p>کاربر ابتدا مستر را انتخاب می‌کند و در حالت دمو عملکرد را می‌بیند. فعال‌سازی معامله واقعی فقط بعد از تأیید اتصال صرافی و کنترل مجوزها انجام می‌شود.</p>
+        <button id="demoBtn" class="primary">شروع تست دمو</button>
+      </div>
+      <div class="hero-stat"><b>۲</b><span>ظرفیت همزمان هر مستر</span><small>نفر سوم وارد صف می‌شود</small></div>
+    </section>
+
+    <section class="section-head"><div><span class="eyebrow">MASTERS</span><h2>مسترهای آزمایشی</h2></div><span id="queueBadge" class="badge">صف: ۰</span></section>
+    <section id="masters" class="grid"></section>
+
+    <section class="dashboard card">
+      <div class="section-head"><div><span class="eyebrow">ACCOUNT</span><h2>وضعیت حساب</h2></div><span id="mode" class="badge demo">دمو</span></div>
+      <div class="account-grid">
+        <div><span>اتصال صرافی</span><b id="exchange">متصل نیست</b></div>
+        <div><span>معامله واقعی</span><b id="real">قفل</b></div>
+        <div><span>ریسک</span><b>کنترل‌شده</b></div>
+      </div>
+      <div class="notice">کلیدهای API هرگز در این رابط نمایش داده نمی‌شوند. برداشت از حساب کاربر نیز باید ممنوع باشد.</div>
+    </section>
+  </main>
+  <footer>© 2026 Copy Trading Platform · Demo environment</footer>
+  <script src="./app.js"></script>
+</body>
+</html>
