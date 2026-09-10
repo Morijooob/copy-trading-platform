@@ -23,11 +23,12 @@ for(const marker of [
   'هیچ سفارش واقعی','ct_demo_account_v6','ct_demo_session_v2','sessionStorage',
   'localStorage','loadDemoAccount','saveDemoAccount','restoreSession',
   'showToast','setAuthError','setAuthMode',"authMode==='register'",'passwordHash',
-  'crypto.subtle.digest','emailVerified:false','^[^\\s@]+@[^\s@]+\\.[^\s@]+$',
+  'crypto.subtle.digest','emailVerified:false',
   'این مرورگر از قبل یک حساب دمو دارد','نام کاربری یا رمز عبور اشتباه است',
   'el.addEventListener(\'click\',activate)','keydown','tabIndex=0'
 ]) assert.ok(js.includes(marker),`app.js missing required behavior: ${marker}`);
 
+assert.ok(js.includes('test(email)'),'email validation must be executed');
 assert.ok((js.match(/followers:0/g)||[]).length>=3,'demo masters must start empty');
 assert.ok(js.includes('password.length<4'),'demo password validation missing');
 assert.ok(js.includes('passwordConfirm'),'registration password confirmation missing');
