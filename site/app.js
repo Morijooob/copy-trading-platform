@@ -6,7 +6,7 @@ const masters=[
 ];
 const joined=new Set();
 const queued=new Set();
-const DEMO_KEY='ct_demo_account_v4';
+const DEMO_KEY='ct_demo_account_v5';
 const SESSION_KEY='ct_demo_session_v1';
 let demoAccount=null;
 let authMode='login';
@@ -34,7 +34,7 @@ function loadDemoAccount(){
     const raw=localStorage.getItem(DEMO_KEY);
     if(!raw)return null;
     const parsed=JSON.parse(raw);
-    return parsed&&typeof parsed.username==='string'&&typeof parsed.passwordHash==='string'?parsed:null;
+    return parsed&&typeof parsed.username==='string'&&typeof parsed.email==='string'&&typeof parsed.passwordHash==='string'?parsed:null;
   }catch(_){
     try{localStorage.removeItem(DEMO_KEY);}catch(__){}
     return null;
@@ -43,12 +43,8 @@ function loadDemoAccount(){
 function saveDemoAccount(account){
   try{localStorage.setItem(DEMO_KEY,JSON.stringify(account));return true;}catch(_){return false;}
 }
-function getSessionUsername(){
-  try{return sessionStorage.getItem(SESSION_KEY)||'';}catch(_){return '';}
-}
-function setSession(username){
-  try{sessionStorage.setItem(SESSION_KEY,username);return true;}catch(_){return false;}
-}
+function getSessionUsername(){try{return sessionStorage.getItem(SESSION_KEY)||'';}catch(_){return '';}}
+function setSession(username){try{sessionStorage.setItem(SESSION_KEY,username);return true;}catch(_){return false;}}
 function clearSession(){try{sessionStorage.removeItem(SESSION_KEY);}catch(_){} }
 function restoreSession(){
   const account=loadDemoAccount();
@@ -81,22 +77,16 @@ function setAuthMode(mode){
   document.querySelector('#loginTab').classList.toggle('active',login);
   document.querySelector('#registerTab').classList.toggle('active',!login);
   document.querySelector('#authTitle').textContent=login?'ورود به حساب دمو':'ثبت‌نام حساب دمو';
-  document.querySelector('#authDescription').textContent=login?'اگر قبلاً حساب دمو ساخته‌اید، نام کاربری و رمزتان را وارد کنید.':'برای ساخت حساب دمو فقط یک نام کاربری و یک رمز عبور لازم است.';
+  document.querySelector('#authDescription').textContent=login?'اگر قبلاً حساب دمو ساخته‌اید، نام کاربری و رمزتان را وارد کنید.':'نام کاربری، ایمیل و رمز عبور خود را برای ساخت حساب دمو وارد کنید.';
+  document.querySelector('#email').classList.toggle('hidden',login);
   document.querySelector('#passwordConfirm').classList.toggle('hidden',login);
   document.querySelector('#password').setAttribute('autocomplete',login?'current-password':'new-password');
   document.querySelector('#authSubmit').textContent=login?'ورود به حساب دمو':'ساخت حساب دمو';
   setAuthError('');
 }
-function openAuth(mode='login'){
-  setAuthMode(mode);
-  authModal.classList.remove('hidden');
-  setTimeout(()=>document.querySelector('#username').focus(),0);
-}
+function openAuth(mode='login'){setAuthMode(mode);authModal.classList.remove('hidden');setTimeout(()=>document.querySelector('#username').focus(),0);}
 function closeAuth(){authModal.classList.add('hidden');setAuthError('');}
-function setDemoActive(){
-  document.querySelector('#exchange').textContent='Demo Exchange · مجازی';
-  document.querySelector('#mode').textContent='دمو فعال';
-}
+function setDemoActive(){document.querySelector('#exchange').textContent='Demo Exchange · مجازی';document.querySelector('#mode').textContent='دمو فعال';}
 function render(){
   mastersEl.innerHTML='';
   masters.forEach(m=>{
@@ -121,25 +111,12 @@ function follow(id){
   if(!demoAccount){openAuth('login');return;}
   const m=masters.find(x=>x.id===id);
   if(!m||joined.has(id)||queued.has(id))return;
-  if(m.followers<MAX_FOLLOWERS){
-    m.followers++;
-    joined.add(id);
-    setDemoActive();
-    showToast(`کپی دمو برای ${m.name} فعال شد. هیچ سفارش واقعی ارسال نمی‌شود.`);
-  }else{
-    m.queue++;
-    queued.add(id);
-    setDemoActive();
-    showToast(`ظرفیت ${m.name} پر است؛ شما در صف انتظار شماره ${fa(m.queue)} قرار گرفتید.`);
-  }
+  if(m.followers<MAX_FOLLOWERS){m.followers++;joined.add(id);setDemoActive();showToast(`کپی دمو برای ${m.name} فعال شد. هیچ سفارش واقعی ارسال نمی‌شود.`);}
+  else{m.queue++;queued.add(id);setDemoActive();showToast(`ظرفیت ${m.name} پر است؛ شما در صف انتظار شماره ${fa(m.queue)} قرار گرفتید.`);}
   render();
 }
 
-document.querySelector('#demoBtn').onclick=()=>{
-  if(!demoAccount){openAuth('login');return;}
-  setDemoActive();
-  showToast('Demo Exchange فعال شد؛ حالا یک مستر آزمایشی را انتخاب کنید.');
-};
+document.querySelector('#demoBtn').onclick=()=>{if(!demoAccount){openAuth('login');return;}setDemoActive();showToast('Demo Exchange فعال شد؛ حالا یک مستر آزمایشی را انتخاب کنید.');};
 document.querySelector('#authBtn').onclick=()=>openAuth('login');
 document.querySelector('#heroAuthBtn').onclick=()=>openAuth('register');
 document.querySelector('#closeAuth').onclick=closeAuth;
@@ -149,21 +126,23 @@ authModal.onclick=e=>{if(e.target===authModal)closeAuth();};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!authModal.classList.contains('hidden'))closeAuth();});
 document.querySelector('#authSubmit').onclick=async()=>{
   const username=document.querySelector('#username').value.trim();
+  const email=document.querySelector('#email').value.trim().toLowerCase();
   const password=document.querySelector('#password').value;
   const confirm=document.querySelector('#passwordConfirm').value;
   setAuthError('');
   if(username.length<3){setAuthError('نام کاربری باید حداقل ۳ کاراکتر باشد.');return;}
+  if(authMode==='register'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){setAuthError('یک ایمیل معتبر وارد کنید.');return;}
   if(password.length<4){setAuthError('رمز عبور باید حداقل ۴ کاراکتر باشد.');return;}
   if(authMode==='register'){
     if(password!==confirm){setAuthError('تکرار رمز عبور با رمز اصلی یکسان نیست.');return;}
     if(loadDemoAccount()){setAuthError('این مرورگر از قبل یک حساب دمو دارد. از بخش ورود استفاده کنید.');return;}
-    const account={username,passwordHash:await hashPassword(password)};
+    const account={username,email,passwordHash:await hashPassword(password),emailVerified:false};
     if(!saveDemoAccount(account)){setAuthError('ذخیره حساب دمو در این مرورگر ممکن نیست.');return;}
     if(!setSession(username)){setAuthError('ساخت نشست دمو در این مرورگر ممکن نیست.');return;}
     demoAccount=account;
     closeAuth();
     setDemoActive();
-    showToast(`حساب دمو برای ${username} ساخته شد؛ وارد حساب شدید و هیچ سفارش واقعی ارسال نمی‌شود.`);
+    showToast(`حساب دمو برای ${username} ساخته شد. ایمیل ثبت شد؛ تأیید واقعی ایمیل بعد از راه‌اندازی Backend انجام می‌شود.`);
     render();
     return;
   }
@@ -179,15 +158,10 @@ document.querySelector('#authSubmit').onclick=async()=>{
   render();
 };
 function logout(){
-  demoAccount=null;
-  clearSession();
-  joined.clear();
-  queued.clear();
-  masters.forEach(m=>{m.followers=0;m.queue=0;});
+  demoAccount=null;clearSession();joined.clear();queued.clear();masters.forEach(m=>{m.followers=0;m.queue=0;});
   document.querySelector('#exchange').textContent='Demo Exchange · مجازی';
   document.querySelector('#mode').textContent='دمو خاموش';
-  render();
-  showToast('از حساب دمو خارج شدید؛ برای ورود دوباره رمز عبور لازم است.');
+  render();showToast('از حساب دمو خارج شدید؛ برای ورود دوباره رمز عبور لازم است.');
 }
 document.querySelector('#logoutBtn').onclick=logout;
 document.querySelector('#topLogoutBtn').onclick=logout;
