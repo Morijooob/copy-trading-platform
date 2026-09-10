@@ -6,6 +6,7 @@ const html=fs.readFileSync(new URL('./index.html',import.meta.url),'utf8');
 const js=fs.readFileSync(new URL('./app.js',import.meta.url),'utf8');
 const css=fs.readFileSync(new URL('./styles.css',import.meta.url),'utf8');
 for(const marker of ['id="masters"','id="queueBadge"','id="demoBtn"','id="real"','styles.css','app.js']) assert.ok(html.includes(marker),`index.html missing ${marker}`);
-for(const marker of ['followers<2','m.queue++','Demo Exchange','هیچ سفارش واقعی']) assert.ok(js.includes(marker),`app.js missing safety/demo behavior: ${marker}`);
+for(const marker of ['MAX_FOLLOWERS=2','followers:0','queue:0','followers<MAX_FOLLOWERS','joined.has(id)','queued.has(id)','m.queue++','Demo Exchange','هیچ سفارش واقعی']) assert.ok(js.includes(marker),`app.js missing safety/demo behavior: ${marker}`);
+assert.equal((js.match(/followers:0/g)||[]).length,3,'all demo masters must start empty');
 for(const marker of ['@media','.master','.dashboard']) assert.ok(css.includes(marker),`styles.css missing ${marker}`);
 console.log('SITE SMOKE TEST: PASS');
