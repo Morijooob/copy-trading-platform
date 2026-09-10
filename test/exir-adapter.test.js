@@ -75,4 +75,14 @@ await test("read-only adapter exposes no order placement method", () => {
   assert.equal(typeof adapter.cancelOrder, "undefined");
 });
 
+await test("read-only adapter blocks direct non-GET requests", async () => {
+  const adapter = new ExirAdapter({ apiKey: "safe-key", apiSecret: "safe-secret", fetchImpl: async () => {
+    throw new Error("network call must not happen");
+  } });
+  await assert.rejects(
+    () => adapter.request("POST", "/v2/order", { symbol: "BTC-USDT" }),
+    /read-only/
+  );
+});
+
 console.log("Exir Adapter Gate: ALL TESTS PASSED");
