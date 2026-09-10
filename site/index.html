@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="پلتفرم کپی‌تریدینگ — محیط دمو و تست کنترل‌شده" />
   <title>Copy Trading Platform</title>
-  <link rel="stylesheet" href="./styles.css?v=6" />
+  <link rel="stylesheet" href="./styles.css?v=7" />
 </head>
 <body>
   <div class="bg"></div>
@@ -66,16 +66,17 @@
       </div>
       <p id="authDescription">اگر قبلاً حساب دمو ساخته‌اید، نام کاربری و رمزتان را وارد کنید.</p>
       <input id="username" placeholder="نام کاربری" autocomplete="username" maxlength="30" />
+      <input id="email" class="hidden" type="email" placeholder="ایمیل" autocomplete="email" maxlength="120" />
       <input id="password" type="password" placeholder="رمز عبور" autocomplete="current-password" maxlength="64" />
       <input id="passwordConfirm" class="hidden" type="password" placeholder="تکرار رمز عبور" autocomplete="new-password" maxlength="64" />
       <button id="authSubmit" class="primary full" type="button">ورود به حساب دمو</button>
       <div id="authError" class="form-error" role="alert"></div>
-      <small id="authHint">حساب دمو فقط برای تست است؛ پول واقعی، برداشت و اتصال صرافی در این نسخه فعال نیست.</small>
+      <small id="authHint">در ثبت‌نام دمو، ایمیل برای آماده‌سازی احراز هویت آینده دریافت می‌شود؛ ارسال واقعی ایمیل تا راه‌اندازی Backend امن فعال نیست.</small>
     </div>
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <footer>© 2026 Copy Trading Platform · Demo environment</footer>
-  <script src="./app.js?v=6"></script>
+  <script src="./app.js?v=7"></script>
 </body>
 </html>
