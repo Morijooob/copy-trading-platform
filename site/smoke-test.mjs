@@ -12,21 +12,27 @@ const css=read('styles.css');
 
 for(const marker of [
   'id="masters"','id="queueBadge"','id="demoBtn"','id="real"',
-  'id="authBtn"','id="authModal"','id="authSubmit"','styles.css?v=3','app.js?v=3'
+  'id="authBtn"','id="authModal"','id="authSubmit"',
+  'id="loginTab"','id="registerTab"','id="passwordConfirm"',
+  'styles.css?v=5','app.js?v=5'
 ]) assert.ok(html.includes(marker),`index.html missing ${marker}`);
 
 for(const marker of [
   'MAX_FOLLOWERS=2','followers:0','queue:0','followers<MAX_FOLLOWERS',
   'joined.has(id)','queued.has(id)','m.queue++','Demo Exchange',
-  'هیچ سفارش واقعی','ct_demo_account_v3','localStorage','loadDemoAccount',
-  'saveDemoAccount','showToast','setAuthError'
+  'هیچ سفارش واقعی','ct_demo_account_v4','localStorage','loadDemoAccount',
+  'saveDemoAccount','showToast','setAuthError','setAuthMode',
+  "authMode==='register'",'passwordHash','crypto.subtle.digest',
+  'این مرورگر از قبل یک حساب دمو دارد','نام کاربری یا رمز عبور اشتباه است'
 ]) assert.ok(js.includes(marker),`app.js missing required behavior: ${marker}`);
 
 assert.ok((js.match(/followers:0/g)||[]).length>=3,'demo masters must start empty');
 assert.ok(js.includes('password.length<4'),'demo password validation missing');
+assert.ok(js.includes('passwordConfirm'),'registration password confirmation missing');
 assert.ok(!js.includes('JSON.stringify({username,password}'),'demo password must never be stored');
+assert.ok(!js.includes("localStorage.setItem(DEMO_KEY,JSON.stringify({username,password"),'plaintext password storage must not exist');
 
-for(const marker of ['@media','.master','.dashboard','.modal','.login-btn','.toast','.form-error'])
+for(const marker of ['@media','.master','.dashboard','.modal','.login-btn','.toast','.form-error','.auth-tabs','.auth-tab'])
   assert.ok(css.includes(marker),`styles.css missing ${marker}`);
 
 execFileSync(process.execPath,['--check',new URL('./app.js',import.meta.url).pathname],{stdio:'pipe'});
