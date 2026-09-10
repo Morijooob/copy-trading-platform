@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths:
       - "src/real-user-account.js"
+      - "src/exir-adapter.js"
       - "test/real-user-account.test.js"
+      - "test/exir-adapter.test.js"
       - ".github/workflows/real-user-gate.yml"
   workflow_dispatch:
 
@@ -18,3 +20,4 @@ jobs:
         with:
           node-version: 22
       - run: node test/real-user-account.test.js
+      - run: node test/exir-adapter.test.js
