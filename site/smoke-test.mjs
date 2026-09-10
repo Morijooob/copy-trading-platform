@@ -14,7 +14,7 @@ for(const marker of [
   'id="authBtn"','id="authModal"','id="authSubmit"',
   'id="loginTab"','id="registerTab"','id="email"','id="passwordConfirm"',
   'id="profileMenu"','id="topAvatar"','id="userAvatar"',
-  'styles.css?v=7','app.js?v=7'
+  'styles.css?v=8','app.js?v=8'
 ]) assert.ok(html.includes(marker),`index.html missing ${marker}`);
 
 for(const marker of [
@@ -25,7 +25,7 @@ for(const marker of [
   'showToast','setAuthError','setAuthMode',"authMode==='register'",'passwordHash',
   'crypto.subtle.digest','emailVerified:false','^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
   'این مرورگر از قبل یک حساب دمو دارد','نام کاربری یا رمز عبور اشتباه است',
-  'برای ورود دوباره رمز عبور لازم است','تأیید واقعی ایمیل'
+  'el.addEventListener(\'click\',activate)','keydown','tabIndex=0'
 ]) assert.ok(js.includes(marker),`app.js missing required behavior: ${marker}`);
 
 assert.ok((js.match(/followers:0/g)||[]).length>=3,'demo masters must start empty');
