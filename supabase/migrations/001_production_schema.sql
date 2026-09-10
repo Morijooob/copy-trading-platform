@@ -1,83 +1,145 @@
 create extension if not exists pgcrypto;
 
-create table if not exists users (
-  id uuid primary key default gen_random_uuid(),
-  email text not null unique,
+-- Canonical production schema for the Supabase-backed copy-trading platform.
+-- Auth identities live in auth.users; public profile data lives in profiles.
+
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
-  password_hash text,
-  email_verified_at timestamptz,
-  two_factor_enabled boolean not null default false,
-  real_trading_enabled boolean not null default false,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists exchange_accounts (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references users(id) on delete cascade,
-  exchange text not null,
-  api_key_ciphertext text not null,
-  api_secret_ciphertext text not null,
-  withdrawal_disabled boolean not null default true,
-  connection_verified_at timestamptz,
-  created_at timestamptz not null default now(),
-  unique(user_id, exchange)
-);
-
-create table if not exists masters (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  active boolean not null default true,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists master_followers (
-  id uuid primary key default gen_random_uuid(),
-  master_id uuid not null references masters(id) on delete cascade,
-  user_id uuid not null references users(id) on delete cascade,
-  status text not null check (status in ('ACTIVE','QUEUED','DISABLED')),
-  created_at timestamptz not null default now(),
-  unique(master_id, user_id)
-);
-
-create table if not exists orders (
-  id uuid primary key default gen_random_uuid(),
-  idempotency_key text not null unique,
-  master_id uuid references masters(id),
-  follower_id uuid references master_followers(id),
-  exchange_order_id text,
-  symbol text not null,
-  side text not null check (side in ('buy','sell')),
-  order_type text not null,
-  requested_size numeric not null,
-  filled_size numeric not null default 0,
-  status text not null,
-  error_code text,
+  role text not null default 'user' check (role in ('user','admin')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create table if not exists ledger_entries (
+create table if not exists public.masters (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references users(id) on delete cascade,
-  asset text not null,
-  entry_type text not null,
-  gross_profit numeric not null default 0,
-  commission numeric not null default 0,
-  net_amount numeric not null default 0,
-  reference_id text,
+  name text not null unique,
+  description text,
+  mode text not null default 'demo' check (mode in ('demo','real')),
+  max_followers integer not null default 2 check (max_followers between 1 and 100),
+  active boolean not null default true,
+  return_pct numeric,
+  risk_level text,
   created_at timestamptz not null default now()
 );
 
-create table if not exists audit_events (
+create table if not exists public.follows (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references users(id),
-  event_type text not null,
+  master_id uuid not null references public.masters(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'active' check (status in ('active','queued','disabled')),
+  created_at timestamptz not null default now(),
+  unique(master_id,user_id)
+);
+
+create table if not exists public.trades (
+  id uuid primary key default gen_random_uuid(),
+  master_id uuid references public.masters(id) on delete set null,
+  symbol text not null,
+  side text not null check (side in ('buy','sell')),
+  quantity numeric,
+  price numeric,
+  status text not null default 'demo' check (status in ('demo','pending','submitted','partial','filled','failed','cancelled')),
+  idempotency_key text unique,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.follower_trades (
+  id uuid primary key default gen_random_uuid(),
+  trade_id uuid not null references public.trades(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  exchange_order_id text,
+  status text not null default 'pending' check (status in ('pending','submitted','partial','filled','failed','cancelled')),
+  filled_quantity numeric,
+  avg_price numeric,
+  error_code text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(trade_id,user_id)
+);
+
+create table if not exists public.ledger_entries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete set null,
+  trade_id uuid references public.trades(id) on delete set null,
+  entry_type text not null check (entry_type in ('profit','commission','adjustment','settlement')),
+  amount numeric not null,
+  currency text not null default 'USDT',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.audit_log (
+  id bigint generated by default as identity primary key,
+  user_id uuid references auth.users(id) on delete set null,
+  action text not null,
+  entity_type text,
+  entity_id uuid,
   request_id text,
-  payload jsonb not null default '{}'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 
-create index if not exists idx_followers_master_status on master_followers(master_id, status, created_at);
-create index if not exists idx_orders_follower on orders(follower_id, created_at);
-create index if not exists idx_ledger_user on ledger_entries(user_id, created_at);
-create index if not exists idx_audit_user on audit_events(user_id, created_at);
+create index if not exists idx_follows_master_status on public.follows(master_id,status,created_at);
+create index if not exists idx_trades_master_created on public.trades(master_id,created_at desc);
+create index if not exists idx_follower_trades_user_created on public.follower_trades(user_id,created_at desc);
+create index if not exists idx_ledger_user_created on public.ledger_entries(user_id,created_at desc);
+create index if not exists idx_audit_created on public.audit_log(created_at desc);
+
+alter table public.profiles enable row level security;
+alter table public.masters enable row level security;
+alter table public.follows enable row level security;
+alter table public.trades enable row level security;
+alter table public.follower_trades enable row level security;
+alter table public.ledger_entries enable row level security;
+alter table public.audit_log enable row level security;
+
+create policy profiles_self_select on public.profiles for select using ((select auth.uid()) = id);
+create policy profiles_self_update on public.profiles for update using ((select auth.uid()) = id) with check ((select auth.uid()) = id);
+create policy masters_public_select on public.masters for select using (active = true);
+create policy follows_self_select on public.follows for select using ((select auth.uid()) = user_id);
+create policy follows_self_insert on public.follows for insert with check ((select auth.uid()) = user_id);
+create policy trades_self_select on public.trades for select to authenticated using (exists (select 1 from public.follows f where f.master_id = trades.master_id and f.user_id = (select auth.uid())));
+create policy follower_trades_self_select on public.follower_trades for select using ((select auth.uid()) = user_id);
+create policy ledger_self_select on public.ledger_entries for select using ((select auth.uid()) = user_id);
+create policy audit_self_select on public.audit_log for select using ((select auth.uid()) = user_id);
+
+-- Atomic capacity check used only by the trusted backend Edge Function.
+create or replace function public.join_master(p_user_id uuid,p_master_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path to ''
+as $$
+declare
+  v_master public.masters%rowtype;
+  v_existing public.follows%rowtype;
+  v_active_count integer;
+  v_queue_position integer;
+  v_follow public.follows%rowtype;
+begin
+  if p_user_id is null then raise exception 'user required'; end if;
+  select * into v_master from public.masters where id=p_master_id and active=true and mode='demo' for update;
+  if not found then raise exception 'master not found'; end if;
+  select * into v_existing from public.follows where user_id=p_user_id and master_id=p_master_id and status in ('active','queued') limit 1;
+  if found then return jsonb_build_object('status',v_existing.status,'queue_position',null,'duplicate',true); end if;
+  select count(*) into v_active_count from public.follows where master_id=p_master_id and status='active';
+  if v_active_count < v_master.max_followers then
+    insert into public.follows(user_id,master_id,status) values(p_user_id,p_master_id,'active') returning * into v_follow;
+    return jsonb_build_object('status','active','queue_position',null,'duplicate',false,'follow_id',v_follow.id);
+  end if;
+  insert into public.follows(user_id,master_id,status) values(p_user_id,p_master_id,'queued') returning * into v_follow;
+  select count(*) into v_queue_position from public.follows where master_id=p_master_id and status='queued' and created_at <= v_follow.created_at;
+  return jsonb_build_object('status','queued','queue_position',v_queue_position,'duplicate',false,'follow_id',v_follow.id);
+end;
+$$;
+
+revoke execute on function public.join_master(uuid,uuid) from public,anon,authenticated;
+grant execute on function public.join_master(uuid,uuid) to service_role;
+
+insert into public.masters(name,description,mode,max_followers,active,return_pct,risk_level)
+values
+  ('Atlas Demo','Controlled demo master for first user testing','demo',2,true,0,'medium'),
+  ('Momentum Demo','Fast demo strategy for testing','demo',2,true,0,'medium'),
+  ('Steady Demo','Conservative demo strategy for testing','demo',2,true,0,'medium')
+on conflict (name) do nothing;
