@@ -1,0 +1,30 @@
+name: Exir Live Read-Only Gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exir-live-readonly:
+    name: Live Exir read-only connection
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      EXIR_API_KEY: ${{ secrets.EXIR_API_KEY }}
+      EXIR_API_SECRET: ${{ secrets.EXIR_API_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify secrets are present
+        shell: bash
+        run: |
+          test -n "$EXIR_API_KEY" || { echo "EXIR_API_KEY is missing"; exit 1; }
+          test -n "$EXIR_API_SECRET" || { echo "EXIR_API_SECRET is missing"; exit 1; }
+      - name: Run live read-only smoke test
+        run: node test/exir-live-readonly.test.js
