@@ -3,30 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="پلتفرم کپی‌تریدینگ — ابتدا دمو، سپس معامله واقعی با کنترل ریسک" />
+  <meta name="description" content="پلتفرم کپی‌تریدینگ — محیط دمو و تست کنترل‌شده" />
   <title>Copy Trading Platform</title>
-  <link rel="stylesheet" href="./styles.css?v=2" />
+  <link rel="stylesheet" href="./styles.css?v=3" />
 </head>
 <body>
   <div class="bg"></div>
   <header class="topbar">
     <div class="brand"><span class="logo">CT</span><div><strong>Copy Trading</strong><small>کنترل‌شده و مرحله‌ای</small></div></div>
-    <div class="top-actions"><span class="status"><span class="dot"></span> سیستم آنلاین</span><button id="authBtn" class="login-btn">ورود / ثبت‌نام</button></div>
+    <div class="top-actions"><span class="status"><span class="dot"></span> محیط آزمایشی آنلاین</span><button id="authBtn" class="login-btn">ثبت‌نام / ورود دمو</button></div>
   </header>
 
   <main class="container">
     <section class="hero card">
       <div>
-        <span class="eyebrow">DEMO FIRST</span>
-        <h1>کپی‌تریدینگ بدون عجله برای پول واقعی</h1>
-        <p>ابتدا حساب دمو بسازید، وارد شوید و عملکرد مسترها را بدون ریسک پول واقعی تست کنید. معامله واقعی فعلاً قفل است.</p>
-        <div class="hero-actions"><button id="demoBtn" class="primary">شروع تست دمو</button><button id="heroAuthBtn" class="secondary">ورود / ثبت‌نام</button></div>
+        <span class="eyebrow">DEMO FIRST · NO REAL MONEY</span>
+        <h1>قبل از پول واقعی، همه‌چیز را تست می‌کنیم.</h1>
+        <p>عضو دمو شوید، محیط را فعال کنید و مسترهای آزمایشی را بدون هیچ سفارش واقعی بررسی کنید. اتصال واقعی صرافی و برداشت فعلاً قفل است.</p>
+        <div class="hero-actions"><button id="demoBtn" class="primary">شروع تست دمو</button><button id="heroAuthBtn" class="secondary">ثبت‌نام / ورود دمو</button></div>
       </div>
       <div class="hero-stat"><b>۲</b><span>ظرفیت همزمان هر مستر</span><small>نفر سوم وارد صف می‌شود</small></div>
     </section>
 
     <section id="userCard" class="user-card card hidden">
-      <div><span class="eyebrow">ACCOUNT</span><strong id="userName">مهمان</strong><small id="userState">برای شروع دمو وارد شوید</small></div>
+      <div><span class="eyebrow">DEMO ACCOUNT</span><strong id="userName">مهمان</strong><small id="userState">برای شروع دمو وارد شوید</small></div>
       <button id="logoutBtn" class="secondary">خروج</button>
     </section>
 
@@ -34,30 +34,32 @@
     <section id="masters" class="grid"></section>
 
     <section class="dashboard card">
-      <div class="section-head"><div><span class="eyebrow">ACCOUNT</span><h2>وضعیت حساب</h2></div><span id="mode" class="badge demo">دمو</span></div>
+      <div class="section-head"><div><span class="eyebrow">ACCOUNT</span><h2>وضعیت حساب</h2></div><span id="mode" class="badge demo">دمو خاموش</span></div>
       <div class="account-grid">
         <div><span>اتصال صرافی</span><b id="exchange">متصل نیست</b></div>
         <div><span>معامله واقعی</span><b id="real">قفل</b></div>
         <div><span>ریسک</span><b>کنترل‌شده</b></div>
       </div>
-      <div class="notice">کلیدهای API هرگز در این رابط نمایش داده نمی‌شوند. برداشت از حساب کاربر نیز باید ممنوع باشد.</div>
+      <div class="notice">این نسخه عمداً هیچ پول واقعی جابه‌جا نمی‌کند. کلید API در رابط نمایش داده نمی‌شود و معامله واقعی تا تکمیل احراز هویت، بک‌اند امن، کنترل ریسک و تست نهایی قفل می‌ماند.</div>
     </section>
   </main>
 
-  <div id="authModal" class="modal hidden">
+  <div id="authModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
     <div class="modal-box card">
-      <button id="closeAuth" class="close">×</button>
+      <button id="closeAuth" class="close" aria-label="بستن">×</button>
       <span class="eyebrow">DEMO ACCOUNT</span>
-      <h2 id="authTitle">ثبت‌نام / ورود</h2>
-      <p>برای تست دمو یک نام کاربری و رمز عبور آزمایشی انتخاب کنید. این نسخه اطلاعات را فقط روی همین مرورگر نگه می‌دارد.</p>
-      <input id="username" placeholder="نام کاربری" autocomplete="username" />
-      <input id="password" type="password" placeholder="رمز عبور" autocomplete="current-password" />
-      <button id="authSubmit" class="primary full">ورود / ثبت‌نام دمو</button>
-      <small id="authHint">حساب دمو فقط برای تست رابط است و هنوز حساب واقعی صرافی نیست.</small>
+      <h2 id="authTitle">ساخت حساب دمو / ورود</h2>
+      <p>این فرم فقط برای تست تجربه کاربری است. اطلاعات حساب دمو روی همین مرورگر نگه داشته می‌شود و حساب واقعی یا حساب صرافی نیست.</p>
+      <input id="username" placeholder="نام کاربری (حداقل ۳ کاراکتر)" autocomplete="username" maxlength="30" />
+      <input id="password" type="password" placeholder="رمز دمو (حداقل ۴ کاراکتر)" autocomplete="current-password" maxlength="64" />
+      <button id="authSubmit" class="primary full">ساخت / ورود به حساب دمو</button>
+      <div id="authError" class="form-error" role="alert"></div>
+      <small id="authHint">برای پول واقعی هنوز ثبت‌نام مالی فعال نیست؛ این قفل امنیتی عمدی است.</small>
     </div>
   </div>
 
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <footer>© 2026 Copy Trading Platform · Demo environment</footer>
-  <script src="./app.js?v=2"></script>
+  <script src="./app.js?v=3"></script>
 </body>
 </html>
