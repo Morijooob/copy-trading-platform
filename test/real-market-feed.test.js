@@ -20,6 +20,20 @@ assert.equal(feed.source, "binance-public");
 await assert.rejects(() => fetchMarketCandles({ symbol: "bad-symbol!", fetchImpl: fakeFetch }), /invalid symbol/);
 await assert.rejects(() => fetchMarketCandles({ symbol: "BTCUSDT", fetchImpl: async () => ({ ok: false, status: 503 }) }), /market feed http 503/);
 await assert.rejects(() => fetchMarketCandles({ symbol: "BTCUSDT", fetchImpl: async () => ({ ok: true, status: 200, async json() { return []; } }) }), /malformed market response/);
-await assert.rejects(() => fetchMarketCandles({ symbol: "BTCUSDT", timeoutMs: 5, fetchImpl: () => new Promise(() => {}) }), /market feed timeout/);
+
+const timeoutFetch = (_url, { signal }) => new Promise((_, reject) => {
+  if (signal.aborted) {
+    const error = new Error("aborted");
+    error.name = "AbortError";
+    reject(error);
+    return;
+  }
+  signal.addEventListener("abort", () => {
+    const error = new Error("aborted");
+    error.name = "AbortError";
+    reject(error);
+  }, { once: true });
+});
+await assert.rejects(() => fetchMarketCandles({ symbol: "BTCUSDT", timeoutMs: 5, fetchImpl: timeoutFetch }), /market feed timeout/);
 
 console.log("real-market-feed tests passed");
