@@ -1,0 +1,37 @@
+name: Gate 1 Manual Runner
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate1:
+    name: Gate 1 deterministic test suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify test files
+        run: |
+          test -f package.json
+          test -f test/gate1.test.js
+          test -f test/network-resilience.test.js
+          test -f test/persistence-store.test.js
+          test -f test/restart-recovery.test.js
+          test -f test/risk-engine.test.js
+          test -f test/risk-controlled-execution.test.js
+          test -f test/real-user-preflight.test.js
+          test -f test/exir-user-readonly-client.test.js
+
+      - name: Run Gate 1 tests
+        run: npm test
