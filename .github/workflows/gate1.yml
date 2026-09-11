@@ -28,7 +28,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Verify test files
         run: |
@@ -45,4 +44,4 @@ jobs:
       - name: Run Gate 1 tests
         run: npm test
 
-# CI trigger marker: workflow logic remains deterministic; this commit re-triggers Gate 1.
+# CI trigger marker: removed npm cache dependency because this repository has no package-lock.json; Gate 1 must run without requiring a lockfile.
