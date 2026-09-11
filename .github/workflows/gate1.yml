@@ -41,3 +41,5 @@ jobs:
 
       - name: Run Gate 1 tests
         run: npm test
+
+# CI trigger verification: keep workflow logic unchanged; this commit only re-triggers Gate 1.
