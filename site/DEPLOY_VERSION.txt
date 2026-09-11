@@ -1,0 +1,1 @@
+Wallet navigation verified in site/index.html. Deployment refresh marker: 2026-09-11T15:20Z
