@@ -1,6 +1,7 @@
 import { ExecutionEngine } from "../execution-engine.js";
 import { RiskEngine } from "../risk-engine.js";
 import { RiskControlledExecution } from "../risk-controlled-execution.js";
+import { fetchMarketCandles } from "./market-feed.js";
 
 const DEFAULT_MASTERS = Object.freeze({
   1: Object.freeze({ name: "Atlas Demo", fast: 9, slow: 21 }),
@@ -37,10 +38,11 @@ export function scoreMarket({ symbol, closes, volumes, fast = 9, slow = 21 }) {
 }
 
 export class RealDryRunPipeline {
-  constructor({ masterId = 1, masters = DEFAULT_MASTERS, riskLimits = {} } = {}) {
+  constructor({ masterId = 1, masters = DEFAULT_MASTERS, riskLimits = {}, marketFeed = fetchMarketCandles } = {}) {
     const master = masters[masterId];
     if (!master) throw new Error("unknown master");
     this.master = master;
+    this.marketFeed = marketFeed;
     this.execution = new ExecutionEngine();
     this.risk = new RiskEngine({ maxOrderNotional: 1000, maxDailyLoss: 200, maxExposure: 1500, ...riskLimits });
     this.gateway = new RiskControlledExecution({ riskEngine: this.risk, executionEngine: this.execution });
@@ -51,6 +53,15 @@ export class RealDryRunPipeline {
 
   evaluateMarket(input) {
     return scoreMarket({ ...input, fast: this.master.fast, slow: this.master.slow });
+  }
+
+  async cycleFromMarketFeed({ symbol, interval = "1m", limit = 60 } = {}) {
+    try {
+      const feed = await this.marketFeed({ symbol, interval, limit });
+      return this.cycle({ symbol, closes: feed.closes, volumes: feed.volumes, candleTime: feed.candleTime, price: feed.price });
+    } catch (error) {
+      return this.record({ type: "NO_TRADE", symbol, reason: "MARKET_DATA_UNAVAILABLE", detail: error?.message || "unknown market feed error" });
+    }
   }
 
   cycle({ symbol, closes, volumes, candleTime, price = null } = {}) {
