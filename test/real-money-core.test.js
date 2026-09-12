@@ -57,6 +57,9 @@ const safetyBlocked = new RealTradingService({
   safety: { killSwitch: true },
   exchange: { order: async () => ({ id: 'must-not-run' }) }
 });
+// Establish healthy monitoring first so this assertion specifically verifies
+// that the kill switch, not the monitoring guard, is the blocking condition.
+safetyBlocked.safety.heartbeat(Date.now());
 await assert.rejects(() => safetyBlocked.copyMasterOrder({ idempotencyKey: 'blocked', follower: { id: 'u1' }, order }), /execution blocked: KILL_SWITCH/);
 
 console.log('REAL MONEY CORE: ALL TESTS PASSED');
