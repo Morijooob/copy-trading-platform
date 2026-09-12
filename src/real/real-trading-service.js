@@ -10,6 +10,7 @@ export class RealTradingService {
     this.exchange = exchange;
     this.enableRealExecution = enableRealExecution === true;
     this.seen = new Set();
+    this.inFlight = new Map();
   }
 
   state() {
@@ -24,6 +25,11 @@ export class RealTradingService {
   async copyMasterOrder({ idempotencyKey, follower, order, dailyLoss = 0, exposure = 0 } = {}) {
     if (!idempotencyKey) throw new Error('idempotencyKey required');
     if (this.seen.has(idempotencyKey)) return { duplicate: true };
+    if (this.inFlight.has(idempotencyKey)) {
+      const result = await this.inFlight.get(idempotencyKey);
+      return { duplicate: true, exchangeOrder: result.exchangeOrder || null };
+    }
+
     this.gate.assertReadyForRealMoney();
     if (!this.enableRealExecution) throw new Error('real execution is explicitly disabled');
     if (!this.exchange) throw new Error('exchange adapter not configured');
@@ -31,6 +37,11 @@ export class RealTradingService {
     if (!order?.symbol || !['buy', 'sell'].includes(order.side)) throw new Error('invalid order');
     if (!(Number.isFinite(order.quantity) && order.quantity > 0 && Number.isFinite(order.price) && order.price > 0)) {
       throw new Error('invalid order quantity/price');
+    }
+
+    if (!this.safety.monitoringHealthy()) {
+      this.safety.recordAlert('EXECUTION_BLOCKED', 'MONITORING_HEARTBEAT_STALE');
+      throw new Error('execution blocked: MONITORING_HEARTBEAT_STALE');
     }
 
     const safety = this.safety.assertExecutionAllowed({
@@ -43,14 +54,18 @@ export class RealTradingService {
       throw new Error(`execution blocked: ${safety.failedChecks.join(',')}`);
     }
 
-    this.seen.add(idempotencyKey);
-    try {
-      const result = await this.exchange.order(order);
-      return { duplicate: false, followerId: follower.id, exchangeOrder: result };
-    } catch (error) {
-      this.seen.delete(idempotencyKey);
-      throw error;
-    }
+    const executionPromise = (async () => {
+      try {
+        const result = await this.exchange.order(order);
+        this.seen.add(idempotencyKey);
+        return { duplicate: false, followerId: follower.id, exchangeOrder: result };
+      } finally {
+        this.inFlight.delete(idempotencyKey);
+      }
+    })();
+
+    this.inFlight.set(idempotencyKey, executionPromise);
+    return executionPromise;
   }
 
   commissionForProfit(profit) {
