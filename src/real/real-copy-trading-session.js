@@ -42,6 +42,18 @@ export class RealCopyTradingSession {
   }
 
   /**
+   * Normalize the master feed's side vocabulary at the session boundary.
+   * Demo-style LONG/SHORT and exchange-style BUY/SELL are both accepted;
+   * everything is converted to the engine's canonical buy/sell form.
+   */
+  normalizeSide(side) {
+    const normalized = String(side || '').trim().toLowerCase();
+    if (normalized === 'buy' || normalized === 'long') return 'buy';
+    if (normalized === 'sell' || normalized === 'short') return 'sell';
+    throw new Error('invalid master side');
+  }
+
+  /**
    * Apply one trusted master event to every admitted follower.
    * Event shape: { eventId, type:'OPEN'|'CLOSE'|'HOLD', symbol, side,
    * quantity, price, timestamp, dailyLoss, exposure }.
@@ -56,7 +68,7 @@ export class RealCopyTradingSession {
     }
 
     if (!this.running) throw new Error('copy-trading session is stopped');
-    if (!['buy', 'sell'].includes(event.side)) throw new Error('invalid master side');
+    const masterSide = this.normalizeSide(event.side);
     if (!(Number.isFinite(event.price) && event.price > 0)) throw new Error('invalid master price');
 
     const results = [];
@@ -70,7 +82,7 @@ export class RealCopyTradingSession {
 
       const order = {
         symbol: event.symbol,
-        side: event.type === 'CLOSE' ? (current.side === 'buy' ? 'sell' : 'buy') : event.side,
+        side: event.type === 'CLOSE' ? (current.side === 'buy' ? 'sell' : 'buy') : masterSide,
         quantity,
         price: event.price
       };
@@ -85,7 +97,7 @@ export class RealCopyTradingSession {
           exposure: Number(event.exposure || 0)
         });
         if (event.type === 'OPEN' && !result.duplicate) {
-          this.positions.set(`${follower.id}:${event.symbol}`, { side: event.side, quantity, openedAt: event.timestamp || Date.now() });
+          this.positions.set(`${follower.id}:${event.symbol}`, { side: masterSide, quantity, openedAt: event.timestamp || Date.now() });
         }
         if (event.type === 'CLOSE' && !result.duplicate) this.positions.delete(`${follower.id}:${event.symbol}`);
         results.push({ followerId: follower.id, result });
