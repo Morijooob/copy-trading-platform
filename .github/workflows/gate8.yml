@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: gate8-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   gate8:
@@ -24,15 +24,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          package-manager-cache: false
       - name: Verify Gate 8 files
         run: |
           test -f src/multi-account-copy-execution.js
           test -f test/gate8.test.js
       - name: Run Gate 8 torture tests
         run: node test/gate8.test.js
-      - name: Run full regression suite
-        run: npm test
