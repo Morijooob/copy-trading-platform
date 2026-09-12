@@ -3,11 +3,12 @@ import { CommissionEngine } from './commission.js';
 import { OperationalSafety } from './operational-safety.js';
 
 export class RealTradingService {
-  constructor({ security = {}, safety = {}, commissionRateBps = 500, exchange, enableRealExecution = false } = {}) {
+  constructor({ security = {}, safety = {}, commissionRateBps = 500, exchange = null, exchangeResolver = null, enableRealExecution = false } = {}) {
     this.gate = new ProductionSecurityGate(security);
     this.safety = new OperationalSafety(safety);
     this.commission = new CommissionEngine({ rateBps: commissionRateBps });
     this.exchange = exchange;
+    this.exchangeResolver = exchangeResolver;
     this.enableRealExecution = enableRealExecution === true;
     this.seen = new Set();
     this.inFlight = new Map();
@@ -18,8 +19,19 @@ export class RealTradingService {
       ...this.gate.publicState(),
       safety: this.safety.publicState(),
       commission: this.commission.publicState(),
-      realExecution: this.enableRealExecution
+      realExecution: this.enableRealExecution,
+      followerExchangeIsolation: typeof this.exchangeResolver === 'function'
     };
+  }
+
+  async resolveExchange(follower) {
+    if (typeof this.exchangeResolver === 'function') {
+      const resolved = await this.exchangeResolver(follower);
+      if (!resolved || typeof resolved.order !== 'function') throw new Error('follower exchange adapter not configured');
+      return resolved;
+    }
+    if (!this.exchange || typeof this.exchange.order !== 'function') throw new Error('exchange adapter not configured');
+    return this.exchange;
   }
 
   async copyMasterOrder({ idempotencyKey, follower, order, dailyLoss = 0, exposure = 0 } = {}) {
@@ -32,7 +44,6 @@ export class RealTradingService {
 
     this.gate.assertReadyForRealMoney();
     if (!this.enableRealExecution) throw new Error('real execution is explicitly disabled');
-    if (!this.exchange) throw new Error('exchange adapter not configured');
     if (!follower?.id) throw new Error('follower required');
     if (!order?.symbol || !['buy', 'sell'].includes(order.side)) throw new Error('invalid order');
     if (!(Number.isFinite(order.quantity) && order.quantity > 0 && Number.isFinite(order.price) && order.price > 0)) {
@@ -56,7 +67,8 @@ export class RealTradingService {
 
     const executionPromise = (async () => {
       try {
-        const result = await this.exchange.order(order);
+        const exchange = await this.resolveExchange(follower);
+        const result = await exchange.order(order);
         this.seen.add(idempotencyKey);
         return { duplicate: false, followerId: follower.id, exchangeOrder: result };
       } finally {
