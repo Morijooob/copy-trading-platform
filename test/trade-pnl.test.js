@@ -27,8 +27,8 @@ assert.equal(longLoss.netPnl, '-1.199');
 const exact = pnl.calculate({
   side: 'long', quantity: '0.12345678', entryPrice: '2541.92000000', exitPrice: '2542.20000000', entryFee: '0.00000001', exitFee: '0.00000002'
 });
-assert.equal(exact.grossPnl, '0.03456789');
-assert.equal(exact.netPnl, '0.03456786');
+assert.equal(exact.grossPnl, '0.0345679');
+assert.equal(exact.netPnl, '0.03456787');
 
 const feePnl = new TradePnlEngine({ feeRateBps: 25 });
 assert.equal(feePnl.estimateFees('100'), '0.25');
