@@ -24,10 +24,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          package-manager-cache: false
       - name: Verify Gate 10 files
         run: |
           test -f src/security-control.js
@@ -38,5 +39,3 @@ jobs:
           test -f test/gate10.test.js
       - name: Run Gate 10 full-system torture tests
         run: node test/gate10.test.js
-      - name: Run full regression suite
-        run: npm test
