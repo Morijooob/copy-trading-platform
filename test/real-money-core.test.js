@@ -30,6 +30,16 @@ const ready = new RealTradingService({
   exchange: { order: async (order) => { calls++; return { id: 'ok', ...order }; } }
 });
 const order = { symbol: 'btc-usdt', side: 'buy', quantity: 1, price: 100 };
+
+// Fail-closed monitoring is mandatory: explicitly prove that stale/uninitialized
+// monitoring blocks execution, then provide a fresh heartbeat for the happy path.
+await assert.rejects(
+  () => ready.copyMasterOrder({ idempotencyKey: 'stale', follower: { id: 'u1' }, order }),
+  /execution blocked: MONITORING_HEARTBEAT_STALE/
+);
+assert.equal(calls, 0);
+ready.safety.heartbeat(Date.now());
+
 const first = await ready.copyMasterOrder({ idempotencyKey: 'same', follower: { id: 'u1' }, order });
 assert.equal(first.exchangeOrder.id, 'ok');
 assert.equal(calls, 1);
