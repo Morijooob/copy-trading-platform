@@ -27,6 +27,7 @@ const marked = isolated.snapshot();
 assert.ok(marked.unrealized > 0);
 assert.equal(marked.position.symbol, 'ETHUSDT');
 assert.equal(marked.lastPrices.ETHUSDT, 101);
+assert.equal(marked.lastPrices.BTCUSDT, 200);
 
 // Take-profit closes the position and records realized profit.
 const tp = new DemoTradingEngine({ capital: 1000, config: { takeProfitPct: 0.01, stopLossPct: 0.5, maxHoldCycles: 99, cooldownCycles: 1 } });
@@ -34,6 +35,7 @@ tp.process({ ETHUSDT: market(100) });
 tp.process({ ETHUSDT: market(102) });
 assert.equal(tp.snapshot().position, null);
 assert.ok(tp.snapshot().realized > 0);
+assert.ok(tp.snapshot().fees > 0);
 assert.ok(tp.drainEvents().some((e) => e.type === 'CLOSE' && e.reason === 'take-profit'));
 
 // Stop-loss closes losing positions.
@@ -69,5 +71,6 @@ assert.ok(maxHold.drainEvents().some((e) => e.type === 'CLOSE' && e.reason === '
 const multi = new DemoTradingEngine({ capital: 1000, config: { takeProfitPct: 0.01, stopLossPct: 0.5, maxHoldCycles: 4, cooldownCycles: 1 } });
 for (const p of [100, 102, 99, 101, 98, 103]) multi.process({ ETHUSDT: market(p) });
 assert.ok(multi.snapshot().orders >= 4);
+assert.ok(multi.snapshot().fees > 0);
 
 console.log('demo trading engine tests: ok');
