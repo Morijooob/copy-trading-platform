@@ -3,6 +3,10 @@ name: Deploy Copy Trading Site
 on:
   push:
     branches: [main]
+    paths:
+      - 'site/**'
+      - 'src/demo/**'
+      - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -10,14 +14,16 @@ permissions:
   pages: write
   id-token: write
 
+# Never let an old deployment block the newest site version.
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
     name: Deploy static site to GitHub Pages
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
