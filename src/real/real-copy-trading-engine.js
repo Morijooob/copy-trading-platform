@@ -18,6 +18,7 @@ export class RealCopyTradingEngine {
     security = {},
     safety = {},
     exchange = null,
+    exchangeResolver = null,
     exirClient = null,
     enableRealExecution = false,
     commissionRateBps = 500,
@@ -29,14 +30,16 @@ export class RealCopyTradingEngine {
       safety,
       commissionRateBps,
       exchange,
+      exchangeResolver,
       enableRealExecution
     });
     this.exchange = exchange || exirClient || null;
+    this.exchangeResolver = exchangeResolver;
     this.execution = execution || new ExecutionEngine();
     this.audit = audit;
   }
 
-  static fromEnv({ fetchImpl = fetch, audit = () => {} } = {}) {
+  static fromEnv({ fetchImpl = fetch, audit = () => {}, exchangeResolver = null } = {}) {
     const security = {
       backendOnlyExecution: process.env.BACKEND_ONLY_EXECUTION === TRUE,
       authenticatedSessions: process.env.AUTHENTICATED_SESSIONS === TRUE,
@@ -63,7 +66,8 @@ export class RealCopyTradingEngine {
 
     return new RealCopyTradingEngine({
       security,
-      exchange,
+      exchange: exchangeResolver ? null : exchange,
+      exchangeResolver,
       enableRealExecution: process.env.REAL_COPY_TRADING_ENABLED === TRUE,
       audit
     });
@@ -72,11 +76,13 @@ export class RealCopyTradingEngine {
   status() {
     const serviceState = this.service.state();
     const monitoringHealthy = serviceState.safety.monitoringHealthy;
+    const exchangeReady = Boolean(this.exchange) || typeof this.exchangeResolver === 'function';
     return {
       readyForRealMoney: serviceState.readyForRealMoney,
       realExecutionEnabled: serviceState.realExecution,
-      exchangeConfigured: Boolean(this.exchange),
-      canPlaceOrders: serviceState.readyForRealMoney && serviceState.realExecution && Boolean(this.exchange) && monitoringHealthy,
+      exchangeConfigured: exchangeReady,
+      followerExchangeIsolation: serviceState.followerExchangeIsolation,
+      canPlaceOrders: serviceState.readyForRealMoney && serviceState.realExecution && exchangeReady && monitoringHealthy,
       failedControls: serviceState.failedControls,
       safety: serviceState.safety,
       commission: serviceState.commission
