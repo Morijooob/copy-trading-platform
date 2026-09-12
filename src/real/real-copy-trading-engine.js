@@ -1,6 +1,7 @@
 import { ExecutionEngine } from '../execution-engine.js';
 import { RealTradingService } from './real-trading-service.js';
 import { ExirClient } from './exir-client.js';
+import { ExirFollowerResolver } from './exir-follower-resolver.js';
 
 const TRUE = 'true';
 
@@ -25,14 +26,7 @@ export class RealCopyTradingEngine {
     execution = null,
     audit = () => {}
   } = {}) {
-    this.service = new RealTradingService({
-      security,
-      safety,
-      commissionRateBps,
-      exchange,
-      exchangeResolver,
-      enableRealExecution
-    });
+    this.service = new RealTradingService({ security, safety, commissionRateBps, exchange, exchangeResolver, enableRealExecution });
     this.exchange = exchange || exirClient || null;
     this.exchangeResolver = exchangeResolver;
     this.execution = execution || new ExecutionEngine();
@@ -54,20 +48,23 @@ export class RealCopyTradingEngine {
       monitoringAndAlerts: process.env.MONITORING_ALERTS === TRUE
     };
 
-    const hasCredentials = Boolean(process.env.EXIR_API_KEY && process.env.EXIR_API_SECRET);
-    const exchange = hasCredentials
-      ? new ExirClient({
-          apiKey: process.env.EXIR_API_KEY,
-          apiSecret: process.env.EXIR_API_SECRET,
-          baseUrl: process.env.EXIR_API_BASE_URL || undefined,
-          fetchImpl
-        })
-      : null;
+    const resolvedFollowerExchange = exchangeResolver || ExirFollowerResolver.fromEnv({ fetchImpl });
+    const hasGlobalCredentials = Boolean(process.env.EXIR_API_KEY && process.env.EXIR_API_SECRET);
+    const exchange = resolvedFollowerExchange
+      ? null
+      : hasGlobalCredentials
+        ? new ExirClient({
+            apiKey: process.env.EXIR_API_KEY,
+            apiSecret: process.env.EXIR_API_SECRET,
+            baseUrl: process.env.EXIR_API_BASE_URL || undefined,
+            fetchImpl
+          })
+        : null;
 
     return new RealCopyTradingEngine({
       security,
-      exchange: exchangeResolver ? null : exchange,
-      exchangeResolver,
+      exchange: resolvedFollowerExchange ? null : exchange,
+      exchangeResolver: resolvedFollowerExchange ? (follower) => resolvedFollowerExchange.resolve(follower) : null,
       enableRealExecution: process.env.REAL_COPY_TRADING_ENABLED === TRUE,
       audit
     });
@@ -94,14 +91,7 @@ export class RealCopyTradingEngine {
     if (!follower?.id) throw new Error('follower required');
     if (!idempotencyKey) throw new Error('idempotencyKey required');
 
-    const result = await this.service.copyMasterOrder({
-      idempotencyKey,
-      follower,
-      order,
-      dailyLoss,
-      exposure
-    });
-
+    const result = await this.service.copyMasterOrder({ idempotencyKey, follower, order, dailyLoss, exposure });
     this.audit({
       type: result.duplicate ? 'REAL_COPY_ORDER_DUPLICATE' : 'REAL_COPY_ORDER_SUBMITTED',
       idempotencyKey,
@@ -109,7 +99,6 @@ export class RealCopyTradingEngine {
       followerId: follower.id,
       exchangeOrder: result.exchangeOrder || null
     });
-
     return result;
   }
 
