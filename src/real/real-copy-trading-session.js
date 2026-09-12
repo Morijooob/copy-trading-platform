@@ -68,8 +68,13 @@ export class RealCopyTradingSession {
     }
 
     if (!this.running) throw new Error('copy-trading session is stopped');
-    const masterSide = this.normalizeSide(event.side);
     if (!(Number.isFinite(event.price) && event.price > 0)) throw new Error('invalid master price');
+
+    // OPEN needs the master's direction. CLOSE deliberately does not: the
+    // authoritative follower position determines the exit direction. This
+    // keeps CLOSE compatible with demo events that contain no side field and
+    // prevents a missing/incorrect close-side value from corrupting a position.
+    const masterSide = event.type === 'OPEN' ? this.normalizeSide(event.side) : null;
 
     const results = [];
     for (const follower of this.followers.values()) {
