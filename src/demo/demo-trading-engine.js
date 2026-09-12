@@ -97,7 +97,7 @@ export class DemoTradingEngine {
     this.fees += exitFee;
     this.orders += 1;
     this.position = null;
-    this.cooldown = this.config.cooldownCycles;
+    this.cooldown = Math.max(0, Math.ceil(Number(this.config.cooldownCycles) || 0));
     return this.emit('CLOSE', { symbol: p.symbol, side: p.side, price, reason, result, fee: exitFee });
   }
 
@@ -120,6 +120,7 @@ export class DemoTradingEngine {
       .sort((a, b) => b[1].score - a[1].score);
     const best = ranked[0] ? { symbol: ranked[0][0], ...ranked[0][1] } : null;
 
+    let closedThisCycle = false;
     if (this.position) {
       this.position.holdCycles += 1;
       const positionSignal = signals[this.position.symbol];
@@ -129,15 +130,23 @@ export class DemoTradingEngine {
         ? (currentPrice - entry) / entry
         : (entry - currentPrice) / entry;
 
-      // Hard risk exits always win over strategy reversal. This prevents a
-      // signal flip from masking a stop-loss/take-profit event.
+      // Hard risk exits always win over strategy reversal.
       let reason = null;
       if (movePct >= this.config.takeProfitPct) reason = 'take-profit';
       else if (movePct <= -this.config.stopLossPct) reason = 'stop-loss';
       else if (this.position.holdCycles >= this.config.maxHoldCycles) reason = 'max-hold';
       else if (positionSignal && ((this.position.side === 'LONG' && positionSignal.signal === 'SELL') || (this.position.side === 'SHORT' && positionSignal.signal === 'BUY'))) reason = 'reverse-signal';
 
-      if (reason) this.close(reason);
+      if (reason) {
+        closedThisCycle = Boolean(this.close(reason));
+      }
+    }
+
+    // A close is a terminal action for this cycle. Do not decrement cooldown
+    // or re-enter immediately; this prevents same-tick churn and race-like
+    // open/close/open sequences.
+    if (closedThisCycle) {
+      return this.snapshot(best);
     }
 
     if (!this.position && this.cooldown > 0) {
