@@ -18,15 +18,15 @@ function formatFixed(value) {
   return `${negative ? '-' : ''}${whole}${fraction ? `.${fraction}` : ''}`;
 }
 
-function mulFixed(a, b) {
-  return (a * b) / SCALE;
-}
-
 function roundDiv(numerator, denominator) {
   if (denominator <= 0n) throw new Error('denominator must be positive');
   const sign = numerator < 0n ? -1n : 1n;
   const abs = numerator < 0n ? -numerator : numerator;
   return sign * ((abs + denominator / 2n) / denominator);
+}
+
+function mulFixed(a, b) {
+  return roundDiv(a * b, SCALE);
 }
 
 export class TradePnlEngine {
