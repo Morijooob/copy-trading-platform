@@ -31,6 +31,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Prepare demo engine for Pages artifact
+        run: |
+          mkdir -p site/src/demo
+          cp src/demo/demo-trading-engine.js site/src/demo/demo-trading-engine.js
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
