@@ -5,8 +5,10 @@ function rows(prices) {
   return prices.map((p, i) => [i, 0, 0, 0, p, 0]);
 }
 function market(price, baseline = 100) {
+  // 20 historical closed candles at baseline, then the latest closed candle,
+  // then the current market price used for execution/P&L marking.
   const prices = Array.from({ length: 20 }, () => baseline);
-  prices.push(price);
+  prices.push(price, price);
   return rows(prices);
 }
 
@@ -50,10 +52,13 @@ const reverseEvents = reverse.drainEvents();
 assert.ok(reverseEvents.some((e) => e.type === 'CLOSE' && e.reason === 'reverse-signal'));
 assert.equal(reverse.snapshot().position, null);
 reverse.process({ ETHUSDT: market(99) });
+assert.equal(reverse.snapshot().position, null);
+reverse.process({ ETHUSDT: market(99) });
 assert.equal(reverse.snapshot().position?.side, 'SHORT');
 
 // Max-hold prevents an indefinite HOLD loop.
 const maxHold = new DemoTradingEngine({ capital: 1000, config: { takeProfitPct: 0.5, stopLossPct: 0.5, maxHoldCycles: 3, cooldownCycles: 1 } });
+maxHold.process({ ETHUSDT: market(100) });
 maxHold.process({ ETHUSDT: market(100) });
 maxHold.process({ ETHUSDT: market(100) });
 maxHold.process({ ETHUSDT: market(100) });
