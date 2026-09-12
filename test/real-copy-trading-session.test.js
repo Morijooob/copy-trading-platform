@@ -25,8 +25,11 @@ const session = new RealCopyTradingSession({
 });
 
 assert.equal(session.start().type, 'START');
-await session.applyMasterEvent({ eventId: 'e1', type: 'OPEN', symbol: 'ETHUSDT', side: 'buy', quantity: 0.01, price: 2500 });
+await session.applyMasterEvent({ eventId: 'e1', type: 'OPEN', symbol: 'ETHUSDT', side: 'LONG', quantity: 0.01, price: 2500 });
 assert.equal(calls.length, 2);
+assert.equal(calls[0].order.side, 'buy');
+assert.equal(calls[1].order.side, 'buy');
+assert.equal(session.state().positions['f1:ETHUSDT'].side, 'buy');
 assert.equal(session.state().positions['f1:ETHUSDT'].quantity, 0.01);
 assert.equal(session.state().positions['f2:ETHUSDT'].quantity, 0.01);
 
@@ -36,6 +39,8 @@ assert.equal(calls.length, 2);
 
 await session.applyMasterEvent({ eventId: 'e3', type: 'CLOSE', symbol: 'ETHUSDT', price: 2544 });
 assert.equal(calls.length, 4);
+assert.equal(calls[2].order.side, 'sell');
+assert.equal(calls[3].order.side, 'sell');
 assert.equal(session.state().positions['f1:ETHUSDT'], undefined);
 assert.equal(session.state().positions['f2:ETHUSDT'], undefined);
 
@@ -43,9 +48,21 @@ assert.equal(session.state().positions['f2:ETHUSDT'], undefined);
 await session.applyMasterEvent({ eventId: 'e3', type: 'CLOSE', symbol: 'ETHUSDT', price: 2544 });
 assert.equal(calls.length, 4);
 
+// SHORT must normalize to the engine's canonical sell side.
+await session.applyMasterEvent({ eventId: 'e4', type: 'OPEN', symbol: 'BTCUSDT', side: 'SHORT', quantity: 0.01, price: 60000 });
+assert.equal(calls.length, 6);
+assert.equal(calls[4].order.side, 'sell');
+assert.equal(calls[5].order.side, 'sell');
+assert.equal(session.state().positions['f1:BTCUSDT'].side, 'sell');
+
+await assert.rejects(
+  session.applyMasterEvent({ eventId: 'e5', type: 'OPEN', symbol: 'BTCUSDT', side: 'SIDEWAYS', quantity: 0.01, price: 60000 }),
+  /invalid master side/
+);
+
 session.stop();
 await assert.rejects(
-  session.applyMasterEvent({ eventId: 'e4', type: 'OPEN', symbol: 'ETHUSDT', side: 'buy', quantity: 0.01, price: 2500 }),
+  session.applyMasterEvent({ eventId: 'e6', type: 'OPEN', symbol: 'ETHUSDT', side: 'BUY', quantity: 0.01, price: 2500 }),
   /session is stopped/
 );
 
