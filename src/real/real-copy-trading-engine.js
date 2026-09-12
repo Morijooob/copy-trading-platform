@@ -10,7 +10,8 @@ const TRUE = 'true';
  * The signal/risk/allocation layer stays exchange-agnostic. This class is the
  * final backend-only bridge that turns an approved follower order into an
  * exchange order. It is fail-closed: live execution is impossible unless the
- * production security controls AND REAL_COPY_TRADING_ENABLED are explicitly on.
+ * production security controls, healthy monitoring heartbeat, and
+ * REAL_COPY_TRADING_ENABLED are explicitly on.
  */
 export class RealCopyTradingEngine {
   constructor({
@@ -70,11 +71,12 @@ export class RealCopyTradingEngine {
 
   status() {
     const serviceState = this.service.state();
+    const monitoringHealthy = serviceState.safety.monitoringHealthy;
     return {
       readyForRealMoney: serviceState.readyForRealMoney,
       realExecutionEnabled: serviceState.realExecution,
       exchangeConfigured: Boolean(this.exchange),
-      canPlaceOrders: serviceState.readyForRealMoney && serviceState.realExecution && Boolean(this.exchange),
+      canPlaceOrders: serviceState.readyForRealMoney && serviceState.realExecution && Boolean(this.exchange) && monitoringHealthy,
       failedControls: serviceState.failedControls,
       safety: serviceState.safety,
       commission: serviceState.commission
