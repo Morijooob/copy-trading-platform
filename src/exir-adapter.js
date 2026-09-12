@@ -20,7 +20,7 @@ export class ExirAdapter {
 
   async request(method, path, body) {
     const normalizedMethod = method.toUpperCase();
-    if (normalizedMethod !== "GET") throw new Error("Exir adapter is read-only");
+    if (!['GET', 'POST', 'DELETE'].includes(normalizedMethod)) throw new Error("Exir method not supported");
     if (!path.startsWith("/v2/")) throw new Error("Exir path must start with /v2/");
     const expires = Math.floor(Date.now() / 1000) + 30;
     const bodyText = body === undefined ? "" : JSON.stringify(body);
@@ -65,5 +65,24 @@ export class ExirAdapter {
     return this.request("GET", "/v2/user/balance");
   }
 
-  // Deliberately absent: order placement is not enabled by this read-only adapter.
+  async order({ symbol, side, quantity, price, type = "market", meta = undefined } = {}) {
+    if (!symbol || !['buy', 'sell'].includes(side)) throw new Error("invalid Exir order");
+    if (!(Number.isFinite(quantity) && quantity > 0)) throw new Error("invalid Exir order quantity");
+    if (!['market', 'limit'].includes(type)) throw new Error("invalid Exir order type");
+    if (type === 'limit' && !(Number.isFinite(price) && price > 0)) throw new Error("limit order price required");
+    const payload = { symbol: String(symbol).toLowerCase(), side, size: quantity, type };
+    if (type === 'limit') payload.price = price;
+    if (meta !== undefined) payload.meta = meta;
+    return this.request("POST", "/v2/order", payload);
+  }
+
+  orderStatus(orderId) {
+    if (!orderId) throw new Error("order id required");
+    return this.request("GET", `/v2/order?order_id=${encodeURIComponent(orderId)}`);
+  }
+
+  cancelOrder(orderId) {
+    if (!orderId) throw new Error("order id required");
+    return this.request("DELETE", `/v2/order?order_id=${encodeURIComponent(orderId)}`);
+  }
 }
