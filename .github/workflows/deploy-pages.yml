@@ -31,6 +31,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # Force the Pages workflow to rebuild when the deployment workflow itself is repaired.
       - name: Prepare demo engine for Pages artifact
         run: |
           mkdir -p site/src/demo
