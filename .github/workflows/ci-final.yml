@@ -1,0 +1,51 @@
+name: Copy Trading CI Final
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One authoritative regression pipeline. New commits replace stale queued runs.
+concurrency:
+  group: copy-trading-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    name: Production regression suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Verify repository invariants
+        run: |
+          test -f package.json
+          test -f src/demo/demo-trading-engine.js
+          test -f test/demo-trading-engine.test.js
+          test -f test/real-engine-demo-parity.test.js
+          test -f test/safe-execution-simulator.test.js
+          test -f test/copy-trading-admission-and-fanout.test.js
+
+      - name: Run complete regression suite
+        run: npm test
+
+      - name: Publish test summary
+        if: always()
+        run: |
+          echo "## Copy Trading CI Final" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Node: $(node --version)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- npm: $(npm --version)" >> "$GITHUB_STEP_SUMMARY"
