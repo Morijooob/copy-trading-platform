@@ -10,15 +10,16 @@ on:
 permissions:
   contents: read
 
+# Only the newest main-branch regression matters. Stale runs must not occupy the queue.
 concurrency:
   group: gate1-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   gate1:
     name: Gate 1 deterministic test suite
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -28,11 +29,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          package-manager-cache: false
 
       - name: Verify test files
         run: |
           test -f package.json
           test -f test/gate1.test.js
+          test -f test/demo-trading-engine.test.js
           test -f test/network-resilience.test.js
           test -f test/persistence-store.test.js
           test -f test/restart-recovery.test.js
@@ -41,7 +44,5 @@ jobs:
           test -f test/real-user-preflight.test.js
           test -f test/exir-user-readonly-client.test.js
 
-      - name: Run Gate 1 tests
+      - name: Run single full regression suite
         run: npm test
-
-# CI trigger marker: removed npm cache dependency because this repository has no package-lock.json; Gate 1 must run without requiring a lockfile.
