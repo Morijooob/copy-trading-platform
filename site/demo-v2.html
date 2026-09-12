@@ -6,7 +6,7 @@
 <style>html,body{margin:0;background:#07111f;overflow-x:hidden}iframe{display:block;width:100%;min-height:1000px;border:0}</style>
 </head>
 <body>
-<iframe id="d" src="./demo-safe.html?v=20260912-pnl2" title="Copy Trading Demo"></iframe>
+<iframe id="d" src="./demo-safe.html?v=20260912-pnl3" title="Copy Trading Demo"></iframe>
 <script>
 (function(){
   var f=document.getElementById('d');
@@ -22,35 +22,41 @@
     if(account&&!d.getElementById('livePnl')){
       var box=d.createElement('div');box.id='livePnl';box.innerHTML='<div class="section-head"><div><span class="eyebrow">LIVE P/L</span><h2>سود و زیان لحظه‌ای</h2></div><span class="badge demo" id="pnlLiveBadge">در انتظار</span></div><div class="live-pnl"><div id="pnlCard" class="neutral"><span>سود/زیان لحظه‌ای</span><b id="livePnlValue">۰٫۰۰ USDT</b></div><div><span>درصد P/L</span><b id="livePnlPct">۰٫۰۰٪</b></div><div><span>قیمت ورود</span><b id="liveEntry">—</b></div><div><span>قیمت لحظه‌ای</span><b id="livePrice">—</b></div><div><span>پوزیشن</span><b id="liveSide">بسته</b></div></div><button id="liveClose" class="secondary pnl-close" type="button" disabled>بستن پوزیشن · تسویه سود/زیان</button><div class="pnl-note">P/L لحظه‌ای با قیمت واقعی بازار محاسبه می‌شود؛ سرمایه و سفارش‌ها همچنان مجازی هستند.</div>';
       var actions=account.querySelector('.hero-actions');account.insertBefore(box,actions);
-      d.getElementById('liveClose').addEventListener('click',function(){var c=d.getElementById('close');if(c){if(c.disabled){return}c.click()}setTimeout(update,250)});
+      d.getElementById('liveClose').addEventListener('click',function(){var c=d.getElementById('close');if(c&&!c.disabled)c.click();setTimeout(poll,150)});
     }
-    function normalizeDigits(v){return String(v==null?'':v).replace(/[۰-۹]/g,function(x){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(x)}).replace(/[٠-٩]/g,function(x){return '٠١٢٣٤٥٦٧٨٩'.indexOf(x)})}
+    function normalizeDigits(v){return String(v==null?'':v).replace(/[۰-۹]/g,function(x){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(x)}).replace(/[٠-٩]/g,function(x){return '٠١٢٣٤٥٦٧٨٩'.indexOf(x)}).replace(/[٫٬]/g,'.').replace(/,/g,'.')}
     function num(v){var n=Number(normalizeDigits(v).replace(/[^0-9.\-]/g,''));return Number.isFinite(n)?n:NaN}
     function fa(n){return String(n).replace(/\d/g,function(x){return '۰۱۲۳۴۵۶۷۸۹'[x]})}
     function money(n){return (Number(n)>=0?'+':'')+fa(Number(n||0).toFixed(2))+' USDT'}
-    function update(){
+    function poll(){
       var side=((d.getElementById('position')||{}).textContent||'').trim();
       var entry=num((d.getElementById('entry')||{}).textContent);
       var current=num((d.getElementById('currentPrice')||{}).textContent);
       var unreal=num((d.getElementById('unrealized')||{}).textContent);
       var state=((d.getElementById('positionState')||{}).textContent||'').trim();
       var open=side==='LONG'||side==='SHORT'||state.indexOf('باز')>=0;
-      if(Number.isFinite(current))d.getElementById('livePrice').textContent=fa(current.toFixed(2))+' USDT';
+      var liveValue=d.getElementById('livePnlValue'), livePct=d.getElementById('livePnlPct'), liveEntry=d.getElementById('liveEntry'), livePrice=d.getElementById('livePrice'), liveSide=d.getElementById('liveSide'), badge=d.getElementById('pnlLiveBadge'), close=d.getElementById('liveClose'), card=d.getElementById('pnlCard');
+      if(!liveValue||!livePct||!liveEntry||!livePrice||!liveSide||!badge||!close||!card)return;
+      if(Number.isFinite(current))livePrice.textContent=fa(current.toFixed(2))+' USDT';
       if(!open||!Number.isFinite(entry)){
-        d.getElementById('liveEntry').textContent='—';d.getElementById('liveSide').textContent='بسته';d.getElementById('livePnlValue').textContent='۰٫۰۰ USDT';d.getElementById('livePnlPct').textContent='۰٫۰۰٪';d.getElementById('pnlLiveBadge').textContent='پوزیشن بسته';d.getElementById('liveClose').disabled=true;d.getElementById('pnlCard').className='neutral';return;
+        liveEntry.textContent='—';liveSide.textContent='بسته';livePnlValue.textContent='۰٫۰۰ USDT';livePct.textContent='۰٫۰۰٪';badge.textContent='پوزیشن بسته';close.disabled=true;card.className='neutral';return;
       }
       var capitalUsed=num((d.getElementById('capital')||{}).value)*0.95;
       var pct=capitalUsed>0&&Number.isFinite(unreal)?unreal/capitalUsed*100:0;
-      d.getElementById('liveEntry').textContent=fa(entry.toFixed(2))+' USDT';
-      d.getElementById('liveSide').textContent=side==='LONG'?'باز · LONG':'باز · SHORT';
-      d.getElementById('livePnlValue').textContent=(unreal>=0?'+':'')+fa(Number(unreal||0).toFixed(2))+' USDT';
-      d.getElementById('livePnlPct').textContent=(pct>=0?'+':'')+fa(Number(pct||0).toFixed(2))+'٪';
-      d.getElementById('pnlLiveBadge').textContent=unreal>=0?'سود لحظه‌ای':'زیان لحظه‌ای';
-      d.getElementById('liveClose').disabled=false;
-      d.getElementById('pnlCard').className=unreal>0.0001?'positive':unreal<-0.0001?'negative':'neutral';
+      liveEntry.textContent=fa(entry.toFixed(2))+' USDT';
+      liveSide.textContent=side==='LONG'?'باز · LONG':'باز · SHORT';
+      liveValue.textContent=money(unreal);
+      livePct.textContent=(pct>=0?'+':'')+fa(Number(pct||0).toFixed(2))+'٪';
+      badge.textContent=unreal>=0?'سود لحظه‌ای':'زیان لحظه‌ای';
+      close.disabled=false;
+      card.className=unreal>0.0001?'positive':unreal<-0.0001?'negative':'neutral';
     }
-    update();
-    if(!d.getElementById('pnlTimers')){var t=d.createElement('script');t.id='pnlTimers';t.textContent='setInterval(function(){('+update.toString()+')()},1000);';d.body.appendChild(t)}
+    poll();
+    if(!d.getElementById('pnlTimers')){
+      var t=d.createElement('script');t.id='pnlTimers';
+      t.textContent='setInterval(function(){var e=document.getElementById("position"),en=document.getElementById("entry"),cp=document.getElementById("currentPrice"),u=document.getElementById("unrealized"),st=document.getElementById("positionState"),n=function(v){return Number(String(v||"").replace(/[۰-۹]/g,function(x){return "۰۱۲۳۴۵۶۷۸۹".indexOf(x)}).replace(/[٠-٩]/g,function(x){return "٠١٢٣٤٥٦٧٨٩".indexOf(x)}).replace(/[٫٬]/g,".").replace(/[^0-9.\\-]/g,""))},fa=function(v){return String(v).replace(/\\d/g,function(x){return "۰۱۲۳۴۵۶۷۸۹"[x]})},side=(e?e.textContent:"").trim(),entry=n(en?en.textContent:""),cur=n(cp?cp.textContent:""),un=n(u?u.textContent:""),open=side==="LONG"||side==="SHORT"||((st?st.textContent:"").indexOf("باز")>=0),V=document.getElementById("livePnlValue"),P=document.getElementById("livePnlPct"),E=document.getElementById("liveEntry"),C=document.getElementById("livePrice"),S=document.getElementById("liveSide"),B=document.getElementById("pnlLiveBadge"),X=document.getElementById("liveClose"),K=document.getElementById("pnlCard");if(!V||!P||!E||!C||!S||!B||!X||!K)return;if(Number.isFinite(cur))C.textContent=fa(cur.toFixed(2))+" USDT";if(!open||!Number.isFinite(entry)){E.textContent="—";S.textContent="بسته";V.textContent="۰٫۰۰ USDT";P.textContent="۰٫۰۰٪";B.textContent="پوزیشن بسته";X.disabled=true;K.className="neutral";return}var cap=n((document.getElementById("capital")||{}).value)*.95,pct=cap>0&&Number.isFinite(un)?un/cap*100:0;E.textContent=fa(entry.toFixed(2))+" USDT";S.textContent=side==="LONG"?"باز · LONG":"باز · SHORT";V.textContent=(un>=0?"+":"")+fa(Number(un||0).toFixed(2))+" USDT";P.textContent=(pct>=0?"+":"")+fa(Number(pct||0).toFixed(2))+"٪";B.textContent=un>=0?"سود لحظه‌ای":"زیان لحظه‌ای";X.disabled=false;K.className=un>.0001?"positive":un<-.0001?"negative":"neutral"},1000);';
+      d.body.appendChild(t);
+    }
     resize();
   }
   f.addEventListener('load',function(){enhance();setTimeout(enhance,300);setTimeout(resize,1000)});
