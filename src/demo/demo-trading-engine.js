@@ -123,14 +123,20 @@ export class DemoTradingEngine {
     if (this.position) {
       this.position.holdCycles += 1;
       const positionSignal = signals[this.position.symbol];
-      const u = this.unrealized();
       const entry = this.position.entry;
-      const movePct = this.position.side === 'LONG' ? (this.lastPrices[this.position.symbol] - entry) / entry : (entry - this.lastPrices[this.position.symbol]) / entry;
+      const currentPrice = this.lastPrices[this.position.symbol];
+      const movePct = this.position.side === 'LONG'
+        ? (currentPrice - entry) / entry
+        : (entry - currentPrice) / entry;
+
+      // Hard risk exits always win over strategy reversal. This prevents a
+      // signal flip from masking a stop-loss/take-profit event.
       let reason = null;
-      if (positionSignal && ((this.position.side === 'LONG' && positionSignal.signal === 'SELL') || (this.position.side === 'SHORT' && positionSignal.signal === 'BUY'))) reason = 'reverse-signal';
-      else if (movePct >= this.config.takeProfitPct) reason = 'take-profit';
+      if (movePct >= this.config.takeProfitPct) reason = 'take-profit';
       else if (movePct <= -this.config.stopLossPct) reason = 'stop-loss';
       else if (this.position.holdCycles >= this.config.maxHoldCycles) reason = 'max-hold';
+      else if (positionSignal && ((this.position.side === 'LONG' && positionSignal.signal === 'SELL') || (this.position.side === 'SHORT' && positionSignal.signal === 'BUY'))) reason = 'reverse-signal';
+
       if (reason) this.close(reason);
     }
 
