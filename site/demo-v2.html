@@ -6,56 +6,54 @@
 <style>html,body{margin:0;background:#07111f;overflow-x:hidden}iframe{display:block;width:100%;min-height:1000px;border:0}</style>
 </head>
 <body>
-<iframe id="d" src="./demo-safe.html?v=20260912-pnl1" title="Copy Trading Demo"></iframe>
+<iframe id="d" src="./demo-safe.html?v=20260912-pnl2" title="Copy Trading Demo"></iframe>
 <script>
 (function(){
   var f=document.getElementById('d');
   function resize(){try{f.style.height=Math.max(1000,f.contentDocument.documentElement.scrollHeight+20)+'px'}catch(e){f.style.height='1500px'}}
   function enhance(){
     var d=f.contentDocument;if(!d)return;
-    if(d.getElementById('simple-ui'))return;
-    var s=d.createElement('style');s.id='simple-ui';
-    s.textContent='body .container{max-width:860px;padding:18px 14px 36px}body .hero{padding:20px;gap:16px}body .hero h1{font-size:clamp(24px,5vw,38px);margin:6px 0 8px}body .hero p{font-size:13px;margin-bottom:12px}body .hero-stat{padding:14px}body .hero-stat b{font-size:38px}body .dashboard{margin-top:12px;padding:16px;border-radius:18px}body .dashboard .section-head{margin:0 0 9px}body .dashboard h2{font-size:18px}body .dashboard:nth-of-type(2) .notice,body .dashboard:nth-of-type(3) .notice{display:none}body .dashboard:nth-of-type(5),body .dashboard:nth-of-type(6){display:none}.live-pnl{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}.live-pnl>div{padding:13px;border-radius:14px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08)}.live-pnl span{display:block;font-size:11px;opacity:.7;margin-bottom:6px}.live-pnl b{font-size:20px}.live-pnl .positive b{color:#54e58a}.live-pnl .negative b{color:#ff6b7a}.live-pnl .neutral b{color:#fff}.pnl-close{width:100%;min-height:48px;margin-top:4px;font-weight:700}.pnl-note{font-size:11px;opacity:.65;margin-top:7px}@media(max-width:720px){body .hero{grid-template-columns:1fr;padding:16px}body .hero-stat{display:none}body .hero-actions>*{min-height:44px}body .dashboard:nth-of-type(2) .account-grid{grid-template-columns:repeat(3,1fr)}body .dashboard:nth-of-type(3) .account-grid,body .dashboard:nth-of-type(4) .account-grid{grid-template-columns:repeat(2,1fr)}.live-pnl{grid-template-columns:1fr 1fr}.live-pnl>div:first-child{grid-column:1/-1}.live-pnl b{font-size:19px}}';
-    d.head.appendChild(s);
+    if(!d.getElementById('simple-ui')){
+      var s=d.createElement('style');s.id='simple-ui';
+      s.textContent='body .container{max-width:860px;padding:18px 14px 36px}body .hero{padding:20px;gap:16px}body .hero h1{font-size:clamp(24px,5vw,38px);margin:6px 0 8px}body .hero p{font-size:13px;margin-bottom:12px}body .hero-stat{padding:14px}body .hero-stat b{font-size:38px}body .dashboard{margin-top:12px;padding:16px;border-radius:18px}body .dashboard .section-head{margin:0 0 9px}body .dashboard h2{font-size:18px}body .dashboard:nth-of-type(2) .notice,body .dashboard:nth-of-type(3) .notice{display:none}body .dashboard:nth-of-type(5),body .dashboard:nth-of-type(6){display:none}.live-pnl{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}.live-pnl>div{padding:13px;border-radius:14px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08)}.live-pnl span{display:block;font-size:11px;opacity:.7;margin-bottom:6px}.live-pnl b{font-size:20px}.live-pnl .positive b{color:#54e58a}.live-pnl .negative b{color:#ff6b7a}.live-pnl .neutral b{color:#fff}.pnl-close{width:100%;min-height:48px;margin-top:4px;font-weight:700}.pnl-note{font-size:11px;opacity:.65;margin-top:7px}@media(max-width:720px){body .hero{grid-template-columns:1fr;padding:16px}body .hero-stat{display:none}body .hero-actions>*{min-height:44px}body .dashboard:nth-of-type(4) .account-grid{grid-template-columns:repeat(2,1fr)}.live-pnl{grid-template-columns:1fr 1fr}.live-pnl>div:first-child{grid-column:1/-1}.live-pnl b{font-size:19px}}';
+      d.head.appendChild(s);
+    }
     var account=d.querySelector('.dashboard:nth-of-type(4)');
     if(account&&!d.getElementById('livePnl')){
       var box=d.createElement('div');box.id='livePnl';box.innerHTML='<div class="section-head"><div><span class="eyebrow">LIVE P/L</span><h2>سود و زیان لحظه‌ای</h2></div><span class="badge demo" id="pnlLiveBadge">در انتظار</span></div><div class="live-pnl"><div id="pnlCard" class="neutral"><span>سود/زیان لحظه‌ای</span><b id="livePnlValue">۰٫۰۰ USDT</b></div><div><span>درصد P/L</span><b id="livePnlPct">۰٫۰۰٪</b></div><div><span>قیمت ورود</span><b id="liveEntry">—</b></div><div><span>قیمت لحظه‌ای</span><b id="livePrice">—</b></div><div><span>پوزیشن</span><b id="liveSide">بسته</b></div></div><button id="liveClose" class="secondary pnl-close" type="button" disabled>بستن پوزیشن · تسویه سود/زیان</button><div class="pnl-note">P/L لحظه‌ای با قیمت واقعی بازار محاسبه می‌شود؛ سرمایه و سفارش‌ها همچنان مجازی هستند.</div>';
       var actions=account.querySelector('.hero-actions');account.insertBefore(box,actions);
-      d.getElementById('liveClose').addEventListener('click',function(){var c=d.getElementById('close');if(c&&!c.disabled)c.click();setTimeout(update,200)});
+      d.getElementById('liveClose').addEventListener('click',function(){var c=d.getElementById('close');if(c){if(c.disabled){return}c.click()}setTimeout(update,250)});
     }
-    var lastFetch=0;
+    function normalizeDigits(v){return String(v==null?'':v).replace(/[۰-۹]/g,function(x){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(x)}).replace(/[٠-٩]/g,function(x){return '٠١٢٣٤٥٦٧٨٩'.indexOf(x)})}
+    function num(v){var n=Number(normalizeDigits(v).replace(/[^0-9.\-]/g,''));return Number.isFinite(n)?n:NaN}
     function fa(n){return String(n).replace(/\d/g,function(x){return '۰۱۲۳۴۵۶۷۸۹'[x]})}
-    function money(n){return fa(Number(n||0).toFixed(2))+' USDT'}
-    function updateFromPrice(p){
-      var entry=Number((d.getElementById('entry')||{}).textContent||'').replace(/[^0-9.\-]/g,'');
-      var side=((d.getElementById('position')||{}).textContent||'').trim();
-      entry=Number(entry);
-      if(!Number.isFinite(p)||p<=0)return;
-      d.getElementById('livePrice').textContent=money(p);
-      if(!entry||side==='FLAT'){d.getElementById('liveEntry').textContent='—';d.getElementById('liveSide').textContent='بسته';d.getElementById('livePnlValue').textContent='۰٫۰۰ USDT';d.getElementById('livePnlPct').textContent='۰٫۰۰٪';d.getElementById('pnlLiveBadge').textContent='پوزیشن بسته';d.getElementById('liveClose').disabled=true;d.getElementById('pnlCard').className='neutral';return}
-      var qtyText=(d.getElementById('positionState')||{}).textContent||'';
-      var m=/باز/.test(qtyText);
-      var used=Number((d.getElementById('cash')||{}).textContent||'').replace(/[^0-9.\-]/g,'');
-      var pnl;
-      var eqQty=Number((d.getElementById('equity')||{}).textContent||'').replace(/[^0-9.\-]/g,'');
-      var feeOpen=0.001;
-      if(!m){return}
-      /* qty is reconstructed from entry and current demo cash allocation. The engine uses ~95% of cash. */
-      var capitalUsed=Number((d.getElementById('capital')||{}).value||10)*0.95;
-      var qty=Math.max(0,(capitalUsed-(capitalUsed*feeOpen))/entry);
-      pnl=side==='LONG'?qty*(p-entry):side==='SHORT'?qty*(entry-p):0;
-      var pct=(capitalUsed>0?pnl/capitalUsed*100:0);
-      d.getElementById('liveEntry').textContent=money(entry);d.getElementById('liveSide').textContent=side==='LONG'?'باز · LONG':'باز · SHORT';d.getElementById('livePnlValue').textContent=(pnl>=0?'+':'')+money(pnl);d.getElementById('livePnlPct').textContent=(pct>=0?'+':'')+fa(pct.toFixed(2))+'٪';d.getElementById('pnlLiveBadge').textContent=pnl>=0?'سود لحظه‌ای':'زیان لحظه‌ای';d.getElementById('liveClose').disabled=false;d.getElementById('pnlCard').className=pnl>0.0001?'positive':pnl<-0.0001?'negative':'neutral';
-    }
+    function money(n){return (Number(n)>=0?'+':'')+fa(Number(n||0).toFixed(2))+' USDT'}
     function update(){
-      var priceEl=d.getElementById('currentPrice');var p=Number((priceEl||{}).textContent||'').replace(/[^0-9.\-]/g,'');
-      if(Number.isFinite(p)&&p>0)updateFromPrice(p);
-      if(Date.now()-lastFetch<2500)return;lastFetch=Date.now();
-      fetch('https://qjvfzgrtxldehvrproqx.supabase.co/functions/v1/demo-market-data?symbols=BTCUSDT%2CETHUSDT%2CSOLUSDT',{cache:'no-store'}).then(function(r){return r.json()}).then(function(data){var sym=(d.getElementById('symbol')||{}).textContent||'';var key=sym.replace('/','');var rows=data&&data.markets&&data.markets[key];if(Array.isArray(rows)&&rows.length){var p=Number(rows[rows.length-1][4]);if(p>0){d.getElementById('currentPrice').textContent=money(p);updateFromPrice(p)}}}).catch(function(){});
+      var side=((d.getElementById('position')||{}).textContent||'').trim();
+      var entry=num((d.getElementById('entry')||{}).textContent);
+      var current=num((d.getElementById('currentPrice')||{}).textContent);
+      var unreal=num((d.getElementById('unrealized')||{}).textContent);
+      var state=((d.getElementById('positionState')||{}).textContent||'').trim();
+      var open=side==='LONG'||side==='SHORT'||state.indexOf('باز')>=0;
+      if(Number.isFinite(current))d.getElementById('livePrice').textContent=fa(current.toFixed(2))+' USDT';
+      if(!open||!Number.isFinite(entry)){
+        d.getElementById('liveEntry').textContent='—';d.getElementById('liveSide').textContent='بسته';d.getElementById('livePnlValue').textContent='۰٫۰۰ USDT';d.getElementById('livePnlPct').textContent='۰٫۰۰٪';d.getElementById('pnlLiveBadge').textContent='پوزیشن بسته';d.getElementById('liveClose').disabled=true;d.getElementById('pnlCard').className='neutral';return;
+      }
+      var capitalUsed=num((d.getElementById('capital')||{}).value)*0.95;
+      var pct=capitalUsed>0&&Number.isFinite(unreal)?unreal/capitalUsed*100:0;
+      d.getElementById('liveEntry').textContent=fa(entry.toFixed(2))+' USDT';
+      d.getElementById('liveSide').textContent=side==='LONG'?'باز · LONG':'باز · SHORT';
+      d.getElementById('livePnlValue').textContent=(unreal>=0?'+':'')+fa(Number(unreal||0).toFixed(2))+' USDT';
+      d.getElementById('livePnlPct').textContent=(pct>=0?'+':'')+fa(Number(pct||0).toFixed(2))+'٪';
+      d.getElementById('pnlLiveBadge').textContent=unreal>=0?'سود لحظه‌ای':'زیان لحظه‌ای';
+      d.getElementById('liveClose').disabled=false;
+      d.getElementById('pnlCard').className=unreal>0.0001?'positive':unreal<-0.0001?'negative':'neutral';
     }
-    update();setInterval(update,1000);setInterval(resize,1000);resize();
+    update();
+    if(!d.getElementById('pnlTimers')){var t=d.createElement('script');t.id='pnlTimers';t.textContent='setInterval(function(){('+update.toString()+')()},1000);';d.body.appendChild(t)}
+    resize();
   }
-  f.addEventListener('load',function(){enhance();resize();setTimeout(enhance,300);setTimeout(resize,1000)});
+  f.addEventListener('load',function(){enhance();setTimeout(enhance,300);setTimeout(resize,1000)});
 })();
 </script>
 </body></html>
