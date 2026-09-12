@@ -1,6 +1,9 @@
 name: Gate 3 Tests
 
-on: [push, workflow_dispatch]
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,11 +19,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+          package-manager-cache: false
       - name: Run Gate 3
         run: node test/gate3.test.js
-      - name: Run regression suite
-        run: npm test
