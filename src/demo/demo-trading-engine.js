@@ -1,11 +1,11 @@
 export const DEFAULT_DEMO_CONFIG = Object.freeze({
   feeRate: 0.001,
   allocationPct: 0.95,
-  minScore: 20,
+  minScore: 60,
   takeProfitPct: 0.004,
   stopLossPct: 0.006,
   maxHoldCycles: 12,
-  cooldownCycles: 1
+  cooldownCycles: 2
 });
 
 export function signalFromRows(rows) {
