@@ -41,6 +41,7 @@ const locked = new RealCopyTradingEngine({
   enableRealExecution: true,
   exchange: { order: async () => { blockedExchangeCalls += 1; return { id: 'MUST-NOT-EXIST' }; } }
 });
+locked.service.safety.heartbeat(Date.now());
 await assert.rejects(
   locked.executeFollowerOrder({
     idempotencyKey: 'locked-1', masterId: 'm1', follower: { id: 'f1' },
@@ -57,12 +58,7 @@ const exchangeResolver = async (follower) => ({
     return { id: `sandbox-${follower.id}`, status: 'filled', filled: order.quantity };
   }
 });
-const engine = new RealCopyTradingEngine({
-  security: unlockedSandboxSecurity,
-  safety: healthySafety,
-  exchangeResolver,
-  enableRealExecution: true
-});
+const engine = new RealCopyTradingEngine({ security: unlockedSandboxSecurity, safety: healthySafety, exchangeResolver, enableRealExecution: true });
 engine.service.safety.heartbeat(Date.now());
 const followers = Array.from({ length: 32 }, (_, i) => ({ id: `f-${i + 1}` }));
 const session = new RealCopyTradingSession({ engine, masterId: 'master-sandbox', followers });
@@ -121,6 +117,7 @@ const riskEngine = new RealCopyTradingEngine({
   enableRealExecution: true,
   exchange: { order: async () => ({ id: 'must-not-run' }) }
 });
+riskEngine.service.safety.heartbeat(Date.now());
 await assert.rejects(
   riskEngine.executeFollowerOrder({
     idempotencyKey: 'risk-1', masterId: 'm1', follower: { id: 'f1' },
