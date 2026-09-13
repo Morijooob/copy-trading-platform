@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 
 const hash = (value) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
+const clone = (value) => JSON.parse(JSON.stringify(value));
+
 export class ExecutionProofChain {
   constructor() {
     this.intents = new Map();
@@ -67,10 +69,37 @@ export class ExecutionProofChain {
   reconcileLedger({ fillId, ledgerId }) {
     const fill = this.fills.get(fillId);
     if (!fill) throw new Error('fill_not_found');
+    if (!ledgerId) throw new Error('ledger_id_required');
     if (this.ledger.has(fillId)) return { ...this.ledger.get(fillId), duplicate: true };
     const entry = Object.freeze({ ledgerId, fillId, exchangeOrderId: fill.exchangeOrderId, fillHash: fill.fillHash });
     this.ledger.set(fillId, entry);
     return { ...entry, duplicate: false };
+  }
+
+  exportState() {
+    return clone({
+      version: 1,
+      intents: [...this.intents.values()],
+      fills: [...this.fills.values()],
+      ledger: [...this.ledger.values()],
+      sequenceByMaster: [...this.sequenceByMaster.entries()]
+    });
+  }
+
+  static fromState(state) {
+    if (!state || state.version !== 1 || !Array.isArray(state.intents) || !Array.isArray(state.fills)
+      || !Array.isArray(state.ledger) || !Array.isArray(state.sequenceByMaster)) {
+      throw new Error('invalid_proof_state');
+    }
+    const chain = new ExecutionProofChain();
+    for (const intent of state.intents) chain.intents.set(intent.idempotencyKey, Object.freeze({ ...intent }));
+    for (const fill of state.fills) chain.fills.set(fill.fillId, Object.freeze({ ...fill }));
+    for (const entry of state.ledger) chain.ledger.set(entry.fillId, Object.freeze({ ...entry }));
+    for (const [masterId, sequence] of state.sequenceByMaster) {
+      if (!masterId || !Number.isInteger(sequence) || sequence < 0) throw new Error('invalid_proof_sequence');
+      chain.sequenceByMaster.set(masterId, sequence);
+    }
+    return chain;
   }
 
   assertReconciled(idempotencyKey) {
