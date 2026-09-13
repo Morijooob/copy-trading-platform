@@ -4,6 +4,9 @@ const hash = (value) => createHash('sha256').update(JSON.stringify(value)).diges
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
+const fillHashFor = ({ fillId, idempotencyKey, exchangeOrderId, quantity, price }) =>
+  hash({ fillId, idempotencyKey, exchangeOrderId, quantity, price });
+
 export class ExecutionProofChain {
   constructor() {
     this.intents = new Map();
@@ -60,8 +63,19 @@ export class ExecutionProofChain {
     if (!intent || intent.status !== 'acknowledged') throw new Error('ack_required_before_fill');
     if (intent.exchangeOrderId !== exchangeOrderId) throw new Error('order_binding_mismatch');
     if (!fillId || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(price) || price <= 0) throw new Error('invalid_fill');
-    if (this.fills.has(fillId)) return { ...this.fills.get(fillId), duplicate: true };
-    const fill = Object.freeze({ fillId, idempotencyKey, exchangeOrderId, quantity, price, fillHash: hash({ fillId, idempotencyKey, exchangeOrderId, quantity, price }) });
+    const existing = this.fills.get(fillId);
+    if (existing) {
+      const samePayload = existing.idempotencyKey === idempotencyKey
+        && existing.exchangeOrderId === exchangeOrderId
+        && existing.quantity === quantity
+        && existing.price === price;
+      if (!samePayload) throw new Error('conflicting_duplicate_fill');
+      return { ...existing, duplicate: true };
+    }
+    const fill = Object.freeze({
+      fillId, idempotencyKey, exchangeOrderId, quantity, price,
+      fillHash: fillHashFor({ fillId, idempotencyKey, exchangeOrderId, quantity, price })
+    });
     this.fills.set(fillId, fill);
     return { ...fill, duplicate: false };
   }
@@ -70,7 +84,11 @@ export class ExecutionProofChain {
     const fill = this.fills.get(fillId);
     if (!fill) throw new Error('fill_not_found');
     if (!ledgerId) throw new Error('ledger_id_required');
-    if (this.ledger.has(fillId)) return { ...this.ledger.get(fillId), duplicate: true };
+    const existing = this.ledger.get(fillId);
+    if (existing) {
+      if (existing.ledgerId !== ledgerId) return { ...existing, duplicate: true };
+      return { ...existing, duplicate: true };
+    }
     const entry = Object.freeze({ ledgerId, fillId, exchangeOrderId: fill.exchangeOrderId, fillHash: fill.fillHash });
     this.ledger.set(fillId, entry);
     return { ...entry, duplicate: false };
@@ -100,6 +118,27 @@ export class ExecutionProofChain {
       chain.sequenceByMaster.set(masterId, sequence);
     }
     return chain;
+  }
+
+  assertIntegrity() {
+    for (const [fillId, fill] of this.fills) {
+      if (!this.intents.has(fill.idempotencyKey)) throw new Error('orphan_fill');
+      const expectedHash = fillHashFor(fill);
+      if (fill.fillHash !== expectedHash) throw new Error('fill_hash_mismatch');
+      const intent = this.intents.get(fill.idempotencyKey);
+      if (intent.exchangeOrderId !== fill.exchangeOrderId) throw new Error('fill_order_binding_mismatch');
+      const ledger = this.ledger.get(fillId);
+      if (!ledger) throw new Error('ledger_reconciliation_missing');
+      if (ledger.fillId !== fillId) throw new Error('ledger_fill_binding_mismatch');
+      if (ledger.exchangeOrderId !== fill.exchangeOrderId) throw new Error('ledger_order_binding_mismatch');
+      if (ledger.fillHash !== fill.fillHash) throw new Error('ledger_fill_hash_mismatch');
+    }
+
+    for (const [fillId, ledger] of this.ledger) {
+      if (!this.fills.has(fillId)) throw new Error('orphan_ledger');
+    }
+
+    return { ok: true, intentCount: this.intents.size, fillCount: this.fills.size, ledgerCount: this.ledger.size };
   }
 
   assertReconciled(idempotencyKey) {
