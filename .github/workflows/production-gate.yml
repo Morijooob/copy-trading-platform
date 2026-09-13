@@ -10,8 +10,8 @@ on:
 permissions:
   contents: read
 
-# There is exactly one production-readiness signal.
-# New commits supersede stale runs instead of queueing behind them.
+# Keep exactly one authoritative production-readiness signal.
+# A fresh commit also guarantees the gate is re-evaluated on the current main head.
 concurrency:
   group: production-gate-${{ github.ref }}
   cancel-in-progress: true
