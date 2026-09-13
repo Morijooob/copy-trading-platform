@@ -37,7 +37,7 @@ assert.throws(() => wallet.debit('user-A', 'USDT', 901, 'cross-wallet-attempt'),
 let blockedExchangeCalls = 0;
 const locked = new RealCopyTradingEngine({
   security,
-  safety: healthySafety,
+  safety: { ...healthySafety, killSwitch: true },
   enableRealExecution: true,
   exchange: { order: async () => { blockedExchangeCalls += 1; return { id: 'MUST-NOT-EXIST' }; } }
 });
@@ -112,7 +112,7 @@ const safeRetry = await uncertainEngine.executeFollowerOrder({
 assert.equal(safeRetry.duplicate, false);
 
 const riskEngine = new RealCopyTradingEngine({
-  security: { ...security, killSwitch: false },
+  security,
   safety: { ...healthySafety, killSwitch: true },
   enableRealExecution: true,
   exchange: { order: async () => ({ id: 'must-not-run' }) }
