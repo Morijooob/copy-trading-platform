@@ -1,0 +1,68 @@
+name: PRODUCTION GATE
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# There is exactly one production-readiness signal.
+# New commits supersede stale runs instead of queueing behind them.
+concurrency:
+  group: production-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  production-gate:
+    name: PRODUCTION READY gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Verify production-gate invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f package.json
+          test -f src/demo/demo-trading-engine.js
+          test -f src/real/real-copy-trading-engine.js
+          test -f src/real/risk-monitor-gate.js
+          test -f src/execution-proof-chain.js
+          test -f test/final-production-readiness.test.js
+          test -f test/execution-proof-chain.test.js
+          test -f test/execution-proof-ledger-integrity.test.js
+          test -f test/gate13-capacity-queue.test.js
+
+      - name: Run the complete regression suite
+        shell: bash
+        run: npm test
+
+      - name: Publish the single production decision
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '# 🚦 PRODUCTION GATE'
+            echo
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Workflow run: $GITHUB_RUN_ID"
+            echo "- Node: $(node --version)"
+            echo "- npm: $(npm --version)"
+            if [ "$GITHUB_JOB" = 'production-gate' ]; then
+              echo '- Real trading remains LOCKED until this gate and runtime controls explicitly permit it.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
