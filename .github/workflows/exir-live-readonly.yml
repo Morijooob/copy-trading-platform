@@ -1,6 +1,8 @@
 name: Exir Live Read-Only Gate
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
