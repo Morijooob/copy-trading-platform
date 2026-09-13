@@ -14,12 +14,23 @@ export class ExecutionProofChain {
     if (!masterId || !followerId || !signalId) throw new Error('identity_required');
     if (!Number.isInteger(sequence) || sequence < 1) throw new Error('invalid_sequence');
     if (!Number.isFinite(quantity) || quantity <= 0) throw new Error('invalid_quantity');
-    const expected = (this.sequenceByMaster.get(masterId) || 0) + 1;
-    if (sequence !== expected) throw new Error('non_monotonic_sequence');
     if (!riskSnapshot?.version || !riskSnapshot?.hash) throw new Error('risk_snapshot_required');
+
     const idempotencyKey = `${masterId}:${followerId}:${signalId}:${sequence}`;
     const existing = this.intents.get(idempotencyKey);
-    if (existing) return { ...existing, duplicate: true };
+    if (existing) {
+      const samePayload = existing.side === side
+        && existing.symbol === symbol
+        && existing.quantity === quantity
+        && existing.riskSnapshotVersion === riskSnapshot.version
+        && existing.riskSnapshotHash === riskSnapshot.hash;
+      if (!samePayload) throw new Error('conflicting_duplicate_intent');
+      return { ...existing, duplicate: true };
+    }
+
+    const expected = (this.sequenceByMaster.get(masterId) || 0) + 1;
+    if (sequence !== expected) throw new Error('non_monotonic_sequence');
+
     const intent = Object.freeze({
       idempotencyKey, masterId, followerId, signalId, sequence, side, symbol, quantity,
       riskSnapshotVersion: riskSnapshot.version, riskSnapshotHash: riskSnapshot.hash,
