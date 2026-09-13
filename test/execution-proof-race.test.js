@@ -8,21 +8,28 @@ async function runFollowerRace(followerCount) {
   const masterId = `master-race-${followerCount}`;
   const riskSnapshot = { version: 'risk-v1', hash: 'risk-hash-v1' };
 
+  // Intent sequence is a monotonic per-master contract. Network-style concurrency
+  // must therefore begin after the ordered sequence has been admitted; otherwise
+  // an out-of-order arrival is correctly rejected by the proof chain.
+  const intents = [];
+  for (let index = 0; index < followerCount; index += 1) {
+    const followerId = `follower-${index + 1}`;
+    const signalId = `signal-${index + 1}`;
+    await sleep((index * 7) % 13);
+    intents.push(chain.createIntent({
+      masterId,
+      followerId,
+      signalId,
+      sequence: index + 1,
+      side: 'buy',
+      symbol: 'BTC/USDT',
+      quantity: 0.001,
+      riskSnapshot,
+    }));
+  }
+
   const results = await Promise.all(
-    Array.from({ length: followerCount }, async (_, index) => {
-      const followerId = `follower-${index + 1}`;
-      const signalId = `signal-${index + 1}`;
-      await sleep((index * 7) % 13);
-      const intent = chain.createIntent({
-        masterId,
-        followerId,
-        signalId,
-        sequence: index + 1,
-        side: 'buy',
-        symbol: 'BTC/USDT',
-        quantity: 0.001,
-        riskSnapshot,
-      });
+    intents.map(async (intent, index) => {
       await sleep((followerCount - index) % 11);
       const ack = chain.acknowledge({
         idempotencyKey: intent.idempotencyKey,
