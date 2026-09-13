@@ -1,6 +1,8 @@
 export class MasterFollowerCapacity {
   constructor({ maxActive = 2 } = {}) {
-    if (!Number.isInteger(maxActive) || maxActive < 1) throw new Error('invalid maxActive');
+    if (!Number.isInteger(maxActive) || maxActive < 1 || maxActive > 2) {
+      throw new Error('invalid maxActive');
+    }
     this.maxActive = maxActive;
     this.masters = new Map();
   }
