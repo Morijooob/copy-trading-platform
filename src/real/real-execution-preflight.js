@@ -1,11 +1,14 @@
 import { ProductionSecurityGate } from "../production-security-gate.js";
 import { fetchMarketCandles } from "./market-feed.js";
+import { evaluateRuntimeRisk } from "./risk-monitor-gate.js";
 
 export class RealExecutionPreflight {
   constructor({
     securityGate = new ProductionSecurityGate(),
     exirAdapter = null,
     marketFeed = fetchMarketCandles,
+    riskMonitor = null,
+    riskLimits = null,
     symbol = "BTCUSDT",
     interval = "1m",
     limit = 60,
@@ -14,6 +17,8 @@ export class RealExecutionPreflight {
     this.securityGate = securityGate;
     this.exirAdapter = exirAdapter;
     this.marketFeed = marketFeed;
+    this.riskMonitor = riskMonitor;
+    this.riskLimits = riskLimits;
     this.symbol = symbol;
     this.interval = interval;
     this.limit = limit;
@@ -53,6 +58,29 @@ export class RealExecutionPreflight {
         });
       } catch (error) {
         checks.push({ name: "EXIR_READ_ONLY_HEALTH", passed: false, detail: error?.message || "Exir health check failed" });
+      }
+    }
+
+    // Runtime risk is deliberately fail-closed. If telemetry is unavailable,
+    // stale, malformed, or outside today's risk window, real execution stays blocked.
+    if (!this.riskMonitor || !this.riskLimits) {
+      checks.push({ name: "RUNTIME_RISK_GUARD", passed: false, detail: "trusted runtime risk telemetry is not configured" });
+    } else {
+      try {
+        const state = await this.riskMonitor.getState();
+        const risk = evaluateRuntimeRisk({
+          state,
+          maxDailyLoss: this.riskLimits.maxDailyLoss,
+          maxExposure: this.riskLimits.maxExposure,
+          maxHeartbeatAgeSeconds: this.riskLimits.maxHeartbeatAgeSeconds
+        });
+        checks.push({
+          name: "RUNTIME_RISK_GUARD",
+          passed: risk.passed,
+          detail: risk.passed ? "daily loss, exposure and heartbeat are within limits" : risk.failures.join(",")
+        });
+      } catch (error) {
+        checks.push({ name: "RUNTIME_RISK_GUARD", passed: false, detail: error?.message || "risk telemetry read failed" });
       }
     }
 
