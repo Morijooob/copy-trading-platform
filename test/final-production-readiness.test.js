@@ -20,12 +20,10 @@ const security = {
 
 const healthySafety = { killSwitch: false, maxOrderNotional: 1000, maxDailyLoss: 200, maxExposure: 1500 };
 
-// 1) Profit + fee accounting.
 const commission = new CommissionEngine({ rateBps: 500 });
 assert.deepEqual(commission.calculate(100), { grossProfit: 100, commission: 5, netProfit: 95 });
 assert.equal(commission.calculate(-1).commission, 0);
 
-// 2) User/platform wallet isolation.
 const wallet = new WalletLedger();
 wallet.credit('user-A', 'USDT', 1000, 'deposit');
 wallet.credit('platform', 'USDT', 50, 'fee');
@@ -35,7 +33,6 @@ assert.equal(wallet.balance('platform', 'USDT'), 50);
 assert.equal(wallet.balance('user-B', 'USDT'), 0);
 assert.throws(() => wallet.debit('user-A', 'USDT', 901, 'cross-wallet-attempt'), /insufficient balance/);
 
-// 3) Production lock: a kill switch blocks before the exchange can be touched.
 let blockedExchangeCalls = 0;
 const locked = new RealCopyTradingEngine({
   security,
@@ -52,7 +49,6 @@ await assert.rejects(
 );
 assert.equal(blockedExchangeCalls, 0);
 
-// 4) Sandbox stress: 32 followers, isolated fake exchanges, no Exir call.
 const calls = [];
 const exchangeResolver = async (follower) => ({
   order: async (order) => {
@@ -67,7 +63,7 @@ const engine = new RealCopyTradingEngine({
   enableRealExecution: true
 });
 engine.service.safety.heartbeat(Date.now());
-engine.service.setKillSwitch(false);
+engine.service.safety.setKillSwitch(false);
 const followers = Array.from({ length: 32 }, (_, i) => ({ id: `f-${i + 1}` }));
 const session = new RealCopyTradingSession({ engine, masterId: 'master-sandbox', followers });
 session.start();
@@ -79,7 +75,6 @@ assert.equal(stress.results.length, 32);
 assert.equal(calls.length, 32);
 assert.equal(new Set(calls.map((x) => x.followerId)).size, 32);
 
-// 5) Duplicate + retry: successful execution is idempotent.
 const duplicate = await engine.executeFollowerOrder({
   idempotencyKey: 'dup-1', masterId: 'm1', follower: { id: 'f-1' },
   order: { symbol: 'btc-usdt', side: 'buy', quantity: 1, price: 10 }
@@ -91,7 +86,6 @@ const duplicateRetry = await engine.executeFollowerOrder({
 assert.equal(duplicate.duplicate, false);
 assert.equal(duplicateRetry.duplicate, true);
 
-// 6) Unknown outcome: never blindly retry a money-moving request.
 let failOnce = true;
 const uncertainEngine = new RealCopyTradingEngine({
   security: { ...security, killSwitch: false },
@@ -121,7 +115,6 @@ const safeRetry = await uncertainEngine.executeFollowerOrder({
 });
 assert.equal(safeRetry.duplicate, false);
 
-// 7) Risk / kill-switch / monitoring gates stay fail-closed.
 const riskEngine = new RealCopyTradingEngine({
   security: { ...security, killSwitch: false },
   safety: { ...healthySafety, killSwitch: true },
