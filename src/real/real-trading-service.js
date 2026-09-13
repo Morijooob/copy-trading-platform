@@ -12,6 +12,7 @@ export class RealTradingService {
     this.enableRealExecution = enableRealExecution === true;
     this.seen = new Set();
     this.inFlight = new Map();
+    this.uncertain = new Set();
   }
 
   state() {
@@ -20,7 +21,8 @@ export class RealTradingService {
       safety: this.safety.publicState(),
       commission: this.commission.publicState(),
       realExecution: this.enableRealExecution,
-      followerExchangeIsolation: typeof this.exchangeResolver === 'function'
+      followerExchangeIsolation: typeof this.exchangeResolver === 'function',
+      uncertainExecutionCount: this.uncertain.size
     };
   }
 
@@ -37,6 +39,7 @@ export class RealTradingService {
   async copyMasterOrder({ idempotencyKey, follower, order, dailyLoss = 0, exposure = 0 } = {}) {
     if (!idempotencyKey) throw new Error('idempotencyKey required');
     if (this.seen.has(idempotencyKey)) return { duplicate: true };
+    if (this.uncertain.has(idempotencyKey)) throw new Error('execution outcome unknown; reconciliation required');
     if (this.inFlight.has(idempotencyKey)) {
       const result = await this.inFlight.get(idempotencyKey);
       return { duplicate: true, exchangeOrder: result.exchangeOrder || null };
@@ -68,9 +71,15 @@ export class RealTradingService {
     const executionPromise = (async () => {
       try {
         const exchange = await this.resolveExchange(follower);
-        const result = await exchange.order(order);
+        const exchangeOrder = await exchange.order({
+          ...order,
+          meta: { ...(order.meta || {}), note: idempotencyKey }
+        });
         this.seen.add(idempotencyKey);
-        return { duplicate: false, followerId: follower.id, exchangeOrder: result };
+        return { duplicate: false, followerId: follower.id, exchangeOrder };
+      } catch (error) {
+        this.uncertain.add(idempotencyKey);
+        throw error;
       } finally {
         this.inFlight.delete(idempotencyKey);
       }
@@ -78,6 +87,14 @@ export class RealTradingService {
 
     this.inFlight.set(idempotencyKey, executionPromise);
     return executionPromise;
+  }
+
+  reconcileIdempotencyKey(idempotencyKey, { accepted = false } = {}) {
+    if (!idempotencyKey) throw new Error('idempotencyKey required');
+    if (!this.uncertain.has(idempotencyKey)) return { reconciled: false, reason: 'not-uncertain' };
+    this.uncertain.delete(idempotencyKey);
+    if (accepted) this.seen.add(idempotencyKey);
+    return { reconciled: true, accepted };
   }
 
   commissionForProfit(profit) {
