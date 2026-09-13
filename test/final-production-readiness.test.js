@@ -18,6 +18,7 @@ const security = {
   monitoringAndAlerts: true
 };
 
+const unlockedSandboxSecurity = { ...security, killSwitch: false };
 const healthySafety = { killSwitch: false, maxOrderNotional: 1000, maxDailyLoss: 200, maxExposure: 1500 };
 
 const commission = new CommissionEngine({ rateBps: 500 });
@@ -57,13 +58,12 @@ const exchangeResolver = async (follower) => ({
   }
 });
 const engine = new RealCopyTradingEngine({
-  security,
+  security: unlockedSandboxSecurity,
   safety: healthySafety,
   exchangeResolver,
   enableRealExecution: true
 });
 engine.service.safety.heartbeat(Date.now());
-engine.service.safety.setKillSwitch(false);
 const followers = Array.from({ length: 32 }, (_, i) => ({ id: `f-${i + 1}` }));
 const session = new RealCopyTradingSession({ engine, masterId: 'master-sandbox', followers });
 session.start();
@@ -88,7 +88,7 @@ assert.equal(duplicateRetry.duplicate, true);
 
 let failOnce = true;
 const uncertainEngine = new RealCopyTradingEngine({
-  security: { ...security, killSwitch: false },
+  security: unlockedSandboxSecurity,
   safety: healthySafety,
   enableRealExecution: true,
   exchange: { order: async () => { if (failOnce) { failOnce = false; throw new Error('simulated network timeout after submit'); } return { id: 'late' }; } }
