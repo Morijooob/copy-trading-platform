@@ -23,94 +23,55 @@ const adapter = {
     const followerId = this.followerId;
     const scenario = mode.get(followerId) || 'normal';
     calls.push({ followerId, scenario, order: { ...nextOrder } });
-
     if (scenario === 'timeout-once') {
       mode.set(followerId, 'normal');
       const error = new Error('exchange timeout before confirmation');
       error.code = 'TIMEOUT';
       throw error;
     }
-
     if (scenario === 'partial') {
       mode.set(followerId, 'partial-completed');
-      return {
-        order_id: `partial-${followerId}`,
-        status: 'partial',
-        filled_quantity: nextOrder.quantity / 2,
-        remaining_quantity: nextOrder.quantity / 2
-      };
+      return { order_id: `partial-${followerId}`, status: 'partial', filled_quantity: nextOrder.quantity / 2, remaining_quantity: nextOrder.quantity / 2 };
     }
-
-    if (scenario === 'recovery') {
-      return {
-        order_id: `recovery-${followerId}`,
-        status: 'filled',
-        filled_quantity: nextOrder.quantity,
-        remaining_quantity: 0
-      };
-    }
-
+    if (scenario === 'recovery') return { order_id: `recovery-${followerId}`, status: 'filled', filled_quantity: nextOrder.quantity, remaining_quantity: 0 };
     return { order_id: `normal-${followerId}`, status: 'filled', filled_quantity: nextOrder.quantity, remaining_quantity: 0 };
   }
 };
 
-const resolver = async (follower) => ({
-  ...adapter,
-  followerId: follower.id
-});
-
-const engine = new RealCopyTradingEngine({
-  security,
-  safety,
-  enableRealExecution: true,
-  exchangeResolver: resolver
-});
+const resolver = async (follower) => ({ ...adapter, followerId: follower.id });
+const engine = new RealCopyTradingEngine({ security, safety, enableRealExecution: true, exchangeResolver: resolver });
 engine.service.safety.heartbeat(Date.now());
 assert.equal(engine.status().canPlaceOrders, true);
 
-// 1) Normal: one master signal reaches the intended follower exactly once.
-const normal = await engine.executeFollowerOrder({
-  idempotencyKey: 'parity-normal', masterId: 'master-1', follower: { id: 'f-normal' }, order
-});
+const normal = await engine.executeFollowerOrder({ idempotencyKey: 'parity-normal', masterId: 'master-1', follower: { id: 'f-normal' }, order });
 assert.equal(normal.exchangeOrder.status, 'filled');
-const normalDuplicate = await engine.executeFollowerOrder({
-  idempotencyKey: 'parity-normal', masterId: 'master-1', follower: { id: 'f-normal' }, order
-});
+const normalDuplicate = await engine.executeFollowerOrder({ idempotencyKey: 'parity-normal', masterId: 'master-1', follower: { id: 'f-normal' }, order });
 assert.equal(normalDuplicate.duplicate, true);
 
-// 2) Timeout before confirmation: first attempt fails; retry is allowed and succeeds.
+// A timeout has an UNKNOWN outcome. Reconciliation must explicitly prove that
+// the exchange did not accept the order before a retry is permitted.
 mode.set('f-timeout', 'timeout-once');
 await assert.rejects(
-  engine.executeFollowerOrder({
-    idempotencyKey: 'parity-timeout', masterId: 'master-1', follower: { id: 'f-timeout' }, order
-  }),
+  engine.executeFollowerOrder({ idempotencyKey: 'parity-timeout', masterId: 'master-1', follower: { id: 'f-timeout' }, order }),
   /exchange timeout/
 );
-const timeoutRetry = await engine.executeFollowerOrder({
-  idempotencyKey: 'parity-timeout', masterId: 'master-1', follower: { id: 'f-timeout' }, order
-});
+await assert.rejects(
+  engine.executeFollowerOrder({ idempotencyKey: 'parity-timeout', masterId: 'master-1', follower: { id: 'f-timeout' }, order }),
+  /reconciliation required/
+);
+assert.deepEqual(engine.service.reconcileIdempotencyKey('parity-timeout', { accepted: false }), { reconciled: true, accepted: false });
+const timeoutRetry = await engine.executeFollowerOrder({ idempotencyKey: 'parity-timeout', masterId: 'master-1', follower: { id: 'f-timeout' }, order });
 assert.equal(timeoutRetry.exchangeOrder.status, 'filled');
 
-// 3) Partial fill: the original intent is considered completed only for the
-// exchange response; the remaining quantity must use a NEW idempotency key.
 mode.set('f-partial', 'partial');
-const partial = await engine.executeFollowerOrder({
-  idempotencyKey: 'parity-partial', masterId: 'master-1', follower: { id: 'f-partial' }, order
-});
+const partial = await engine.executeFollowerOrder({ idempotencyKey: 'parity-partial', masterId: 'master-1', follower: { id: 'f-partial' }, order });
 assert.equal(partial.exchangeOrder.status, 'partial');
 assert.equal(partial.exchangeOrder.remaining_quantity, order.quantity / 2);
-
 mode.set('f-partial', 'recovery');
-const recovery = await engine.executeFollowerOrder({
-  idempotencyKey: 'parity-partial-recovery',
-  masterId: 'master-1',
-  follower: { id: 'f-partial' },
-  order: { ...order, quantity: order.quantity / 2 }
-});
+const recovery = await engine.executeFollowerOrder({ idempotencyKey: 'parity-partial-recovery', masterId: 'master-1', follower: { id: 'f-partial' }, order: { ...order, quantity: order.quantity / 2 } });
 assert.equal(recovery.exchangeOrder.status, 'filled');
 assert.equal(recovery.exchangeOrder.remaining_quantity, 0);
 
-// 4) Concurrent duplicate signal: idempotency collapses it to one exchange call.
 const before = calls.filter((x) => x.followerId === 'f-concurrent').length;
 const concurrentAdapter = await resolver({ id: 'f-concurrent' });
 let concurrentCalls = 0;
@@ -130,16 +91,10 @@ assert.equal(concurrentCalls, 1);
 assert.equal(results.filter((r) => r.duplicate).length, 1);
 assert.equal(calls.filter((x) => x.followerId === 'f-concurrent').length, before);
 
-// 5) Missing follower adapter fails closed.
-const blocked = new RealCopyTradingEngine({
-  security, safety, enableRealExecution: true,
-  exchangeResolver: async () => null
-});
+const blocked = new RealCopyTradingEngine({ security, safety, enableRealExecution: true, exchangeResolver: async () => null });
 blocked.service.safety.heartbeat(Date.now());
 await assert.rejects(
-  blocked.executeFollowerOrder({
-    idempotencyKey: 'parity-no-adapter', masterId: 'master-1', follower: { id: 'missing' }, order
-  }),
+  blocked.executeFollowerOrder({ idempotencyKey: 'parity-no-adapter', masterId: 'master-1', follower: { id: 'missing' }, order }),
   /follower exchange adapter not configured/
 );
 
