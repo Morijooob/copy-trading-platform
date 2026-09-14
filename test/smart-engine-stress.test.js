@@ -21,7 +21,7 @@ function makeSeries(seed = 17, length = 140) {
 }
 
 // Run several deterministic market paths. Every state transition must stay finite,
-// cash must never become negative, and a position must have valid geometry.
+// cash must never become negative, and a position must have valid protective geometry.
 for (const seed of [1, 7, 17, 42, 99, 123456]) {
   const engine = new SmartTradingEngine({ capital: 1000, config: { cooldownBars: 2 } });
   const full = makeSeries(seed, 220);
@@ -38,11 +38,14 @@ for (const seed of [1, 7, 17, 42, 99, 123456]) {
       assert.ok(snapshot.position.stop > 0);
       assert.ok(snapshot.position.target > 0);
       assert.ok(snapshot.position.side === 'LONG' || snapshot.position.side === 'SHORT');
+      // A trailing stop may legitimately cross the entry after a profitable move.
+      // The real geometry invariant is that it remains on the protective side of
+      // the best observed price, while the target remains beyond the entry.
       if (snapshot.position.side === 'LONG') {
-        assert.ok(snapshot.position.stop < snapshot.position.entry);
+        assert.ok(snapshot.position.stop <= snapshot.position.bestPrice);
         assert.ok(snapshot.position.target > snapshot.position.entry);
       } else {
-        assert.ok(snapshot.position.stop > snapshot.position.entry);
+        assert.ok(snapshot.position.stop >= snapshot.position.bestPrice);
         assert.ok(snapshot.position.target < snapshot.position.entry);
       }
     }
