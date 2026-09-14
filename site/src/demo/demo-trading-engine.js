@@ -1,7 +1,7 @@
 export const DEFAULT_DEMO_CONFIG = Object.freeze({
   feeRate: 0.001,
   allocationPct: 0.95,
-  minScore: 60,
+  minScore: 70,
   takeProfitPct: 0.004,
   stopLossPct: 0.006,
   maxHoldCycles: 12,
@@ -16,8 +16,17 @@ export function signalFromRows(rows) {
   const latest = closes.at(-1);
   const baseline = closes.at(-20);
   if (!(baseline > 0)) return null;
+
   const signal = latest >= baseline ? 'BUY' : 'SELL';
-  const score = Math.round(Math.min(100, 20 + Math.min(40, Math.abs((latest - baseline) / baseline) * 8000)));
+  const momentumPoints = Math.min(60, Math.abs((latest - baseline) / baseline) * 8000);
+  const rawVolumes = closed.map((row) => Number(row?.[5])).filter(Number.isFinite);
+  const avgVolume = rawVolumes.length ? rawVolumes.reduce((sum, value) => sum + value, 0) / rawVolumes.length : 0;
+  const recentVolumes = rawVolumes.slice(-10);
+  const recentVolume = recentVolumes.length ? recentVolumes.reduce((sum, value) => sum + value, 0) / recentVolumes.length : 0;
+  const volumeRatio = avgVolume > 0 ? recentVolume / avgVolume : 1;
+  const volumePoints = Math.min(20, Math.max(0, 10 + (volumeRatio - 1) * 20));
+  const score = Math.round(Math.min(100, 20 + momentumPoints + volumePoints));
+
   const price = Number(rows.at(-1)?.[4]);
   if (!(price > 0)) return null;
   return { price, signal, score };
@@ -154,7 +163,10 @@ export class DemoTradingEngine {
 
   snapshot(best = null) {
     const unrealized = this.unrealized();
-    const equity = this.position ? this.cash + this.position.margin + unrealized : this.cash;
+    const equity = this.position
+      ? this.cash + this.position.margin + unrealized
+      : this.cash;
+    const position = clonePosition(this.position);
     return {
       capital: this.capital,
       cash: this.cash,
@@ -166,7 +178,7 @@ export class DemoTradingEngine {
       orders: this.orders,
       cycleCount: this.cycleCount,
       cooldown: this.cooldown,
-      position: clonePosition(this.position),
+      position,
       lastPrices: { ...this.lastPrices },
       lastSignals: { ...this.lastSignals },
       best
