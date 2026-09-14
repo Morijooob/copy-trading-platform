@@ -12,8 +12,8 @@ function market(price, baseline = 100, volume = 0) {
 function marketWithVolume(price, baseline = 100, recentVolume = 2, baseVolume = 1) {
   const prices = Array.from({ length: 20 }, () => baseline);
   prices.push(price, price);
-  const volumes = Array.from({ length: 20 }, () => baseVolume);
-  volumes.push(recentVolume, recentVolume);
+  const volumes = Array.from({ length: 12 }, () => baseVolume);
+  volumes.push(...Array.from({ length: 10 }, () => recentVolume));
   return rows(prices, volumes);
 }
 
