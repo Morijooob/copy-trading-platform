@@ -27,19 +27,27 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const finitePositive = (value) => Number.isFinite(value) && value > 0;
 
 function closesOf(candles) {
-  return candles.map((c) => Number(c?.close ?? c?.[4])).filter(Number.isFinite);
+  return candles.map((c) => Number(c?.close ?? c?.[4]));
 }
 
 function volumesOf(candles) {
-  return candles.map((c) => Number(c?.volume ?? c?.[5])).filter(Number.isFinite);
+  return candles.map((c) => Number(c?.volume ?? c?.[5]));
 }
 
 function highsOf(candles) {
-  return candles.map((c) => Number(c?.high ?? c?.[2])).filter(Number.isFinite);
+  return candles.map((c) => Number(c?.high ?? c?.[2]));
 }
 
 function lowsOf(candles) {
-  return candles.map((c) => Number(c?.low ?? c?.[3])).filter(Number.isFinite);
+  return candles.map((c) => Number(c?.low ?? c?.[3]));
+}
+
+function validClosedCandle(candle) {
+  const close = Number(candle?.close ?? candle?.[4]);
+  const high = Number(candle?.high ?? candle?.[2]);
+  const low = Number(candle?.low ?? candle?.[3]);
+  const volume = Number(candle?.volume ?? candle?.[5]);
+  return finitePositive(close) && finitePositive(high) && finitePositive(low) && finitePositive(volume) && high >= low;
 }
 
 export function ema(values, period) {
@@ -93,6 +101,10 @@ export function analyzeMarket(candles, config = {}) {
   // Use only closed candles. The last candle may still be forming.
   const closed = candles.slice(0, -1);
   if (closed.length < cfg.minCandles) return { action: 'NO_TRADE', reason: 'insufficient-closed-data', score: 0 };
+
+  // Validate the complete candle set before extracting indicators. Filtering invalid
+  // values would silently misalign OHLCV series and could turn corrupt data into a trade.
+  if (!closed.every(validClosedCandle)) return { action: 'NO_TRADE', reason: 'invalid-candle-data', score: 0 };
 
   const closes = closesOf(closed);
   const highs = highsOf(closed);
