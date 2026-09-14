@@ -1,12 +1,8 @@
-name: Deploy Copy Trading Site
+name: Deploy Copy Trading Site (manual)
 
+# GitHub Pages is deployed automatically by static.yml.
+# Keep this workflow manual-only to avoid competing Pages deployments.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'site/**'
-      - 'src/demo/**'
-      - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -14,14 +10,9 @@ permissions:
   pages: write
   id-token: write
 
-# Never let an old deployment block the newest site version.
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 jobs:
   deploy:
-    name: Deploy static site to GitHub Pages
+    name: Manual static site deploy
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
@@ -29,22 +20,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
-
-      # Force the Pages workflow to rebuild when the deployment workflow itself is repaired.
-      - name: Prepare demo engine for Pages artifact
-        run: |
-          mkdir -p site/src/demo
-          cp src/demo/demo-trading-engine.js site/src/demo/demo-trading-engine.js
-
+        uses: actions/checkout@v4
       - name: Configure Pages
         uses: actions/configure-pages@v5
-
       - name: Upload site artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v3
         with:
           path: ./site
-
       - name: Deploy Pages
         id: deployment
         uses: actions/deploy-pages@v4
