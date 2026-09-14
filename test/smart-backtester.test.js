@@ -14,16 +14,16 @@ function candlesFromReturns(returns, start = 100) {
 
 function regimeData() {
   const out = [];
-  // Strong but non-monotonic uptrend: periodic pullbacks keep RSI in a realistic
-  // confirmation band instead of forcing RSI to 100 and making every signal invalid.
+  // Strong uptrend with controlled pullbacks. The gain/loss balance keeps RSI
+  // inside the production confirmation band instead of saturating near 100.
   for (let i = 0; i < 180; i += 1) {
     const cycle = i % 6;
-    out.push(cycle < 4 ? 0.0019 : -0.0010);
+    out.push(cycle < 4 ? 0.0015 : -0.0020);
   }
-  // Strong but non-monotonic downtrend: periodic rebounds keep RSI realistic.
+  // Strong downtrend with controlled rebounds. RSI remains in the SHORT band.
   for (let i = 0; i < 120; i += 1) {
     const cycle = i % 6;
-    out.push(cycle < 4 ? -0.0017 : 0.0009);
+    out.push(cycle < 4 ? -0.0015 : 0.0020);
   }
   // Low-amplitude chop should not manufacture trades.
   for (let i = 0; i < 120; i += 1) out.push((i % 2 ? 1 : -1) * 0.00015);
