@@ -24,6 +24,7 @@ export class WithdrawalService {
     if (existingId) return { ...this.requests.get(existingId), duplicate: true };
 
     if (this.availableBalance(userId, asset) < amount) throw new Error('insufficient available balance');
+    if (amount > this.maxAmount) throw new Error('amount exceeds maximum');
 
     const id = `wd-${++this.sequence}`;
     const request = Object.freeze({
@@ -95,7 +96,7 @@ export class WithdrawalService {
     if (!userId) throw new Error('userId required');
     if (!asset || !/^[A-Z0-9]{2,12}$/.test(asset)) throw new Error('invalid asset');
     if (!Number.isFinite(amount) || amount <= 0) throw new Error('amount must be positive');
-    if (amount > this.maxAmount) throw new Error('amount exceeds maximum');
+    if (!Number.isFinite(this.maxAmount) || this.maxAmount <= 0) throw new Error('invalid maximum');
     if (!destination || typeof destination !== 'string' || destination.length > 256) throw new Error('invalid destination');
     if (!idempotencyKey || typeof idempotencyKey !== 'string' || idempotencyKey.length > 128) throw new Error('idempotency key required');
   }
