@@ -24,7 +24,6 @@ export function backtest(candles, options = {}) {
     const unrealized = position.side === 'LONG'
       ? position.qty * (price - position.entry)
       : position.qty * (position.entry - price);
-    // Shorts use 1x notional collateral in this research backtester.
     return cash + (position.side === 'SHORT' ? position.margin : 0) + unrealized;
   };
   const exitPrice = (side, price) => side === 'LONG'
@@ -42,16 +41,12 @@ export function backtest(candles, options = {}) {
     const fee = p.qty * exit * cfg.feeRate;
     const pnl = gross - fee - p.entryFee;
 
-    if (p.side === 'LONG') {
-      cash += p.qty * exit - fee;
-    } else {
-      cash += p.margin + gross - fee;
-    }
+    if (p.side === 'LONG') cash += p.qty * exit - fee;
+    else cash += p.margin + gross - fee;
 
     realized += pnl;
     fees += fee + p.entryFee;
-    const trade = { side: p.side, entry: p.entry, exit, qty: p.qty, pnl, reason, entryBar: p.entryBar, exitBar: bar };
-    trades.push(trade);
+    trades.push({ side: p.side, entry: p.entry, exit, qty: p.qty, pnl, reason, entryBar: p.entryBar, exitBar: bar });
     if (pnl >= 0) wins += 1; else losses += 1;
     position = null;
     cooldown = cfg.cooldownBars;
@@ -89,12 +84,7 @@ export function backtest(candles, options = {}) {
         const notional = qty * entry;
         const entryFee = notional * cfg.feeRate;
         if (qty > 0 && notional + entryFee <= cash) {
-          if (signal.action === 'LONG') {
-            cash -= notional + entryFee;
-          } else {
-            // Reserve 1x notional collateral for the short position.
-            cash -= notional + entryFee;
-          }
+          cash -= notional + entryFee;
           fees += entryFee;
           position = {
             side: signal.action,
@@ -122,13 +112,30 @@ export function backtest(candles, options = {}) {
     close(final, 'end-of-test', candles.length - 1);
   }
 
+  const tradeCount = trades.length;
   const finalEquity = cash;
   const returnPct = ((finalEquity / initialCapital) - 1) * 100;
-  const winRate = trades.length ? (wins / trades.length) * 100 : 0;
+  const winRate = tradeCount ? (wins / tradeCount) * 100 : 0;
   const grossProfit = trades.filter(t => t.pnl > 0).reduce((s, t) => s + t.pnl, 0);
   const grossLoss = trades.filter(t => t.pnl < 0).reduce((s, t) => s + Math.abs(t.pnl), 0);
   const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? Infinity : 0);
-  return { initialCapital, finalEquity, returnPct, maxDrawdownPct: maxDrawdown * 100, trades: trades.length, wins, losses, winRate, profitFactor, fees, realized, trades };
+
+  // Keep `trades` as the historical numeric count for compatibility; expose
+  // the detailed trade ledger separately so callers can inspect each path.
+  return {
+    initialCapital,
+    finalEquity,
+    returnPct,
+    maxDrawdownPct: maxDrawdown * 100,
+    trades: tradeCount,
+    tradeDetails: trades,
+    wins,
+    losses,
+    winRate,
+    profitFactor,
+    fees,
+    realized
+  };
 }
 
 export function walkForward(candles, { trainRatio = 0.7, ...options } = {}) {
