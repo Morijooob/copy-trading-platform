@@ -19,7 +19,14 @@ export function backtest(candles, options = {}) {
   let losses = 0;
   const trades = [];
 
-  const equityAt = (price) => cash + (position ? position.qty * price : 0);
+  const equityAt = (price) => {
+    if (!position) return cash;
+    const unrealized = position.side === 'LONG'
+      ? position.qty * (price - position.entry)
+      : position.qty * (position.entry - price);
+    // Shorts use 1x notional collateral in this research backtester.
+    return cash + (position.side === 'SHORT' ? position.margin : 0) + unrealized;
+  };
   const exitPrice = (side, price) => side === 'LONG'
     ? price * (1 - cfg.slippageBps / 10000)
     : price * (1 + cfg.slippageBps / 10000);
@@ -34,7 +41,13 @@ export function backtest(candles, options = {}) {
     const gross = p.side === 'LONG' ? p.qty * (exit - p.entry) : p.qty * (p.entry - exit);
     const fee = p.qty * exit * cfg.feeRate;
     const pnl = gross - fee - p.entryFee;
-    cash += p.qty * exit - fee;
+
+    if (p.side === 'LONG') {
+      cash += p.qty * exit - fee;
+    } else {
+      cash += p.margin + gross - fee;
+    }
+
     realized += pnl;
     fees += fee + p.entryFee;
     const trade = { side: p.side, entry: p.entry, exit, qty: p.qty, pnl, reason, entryBar: p.entryBar, exitBar: bar };
@@ -76,9 +89,25 @@ export function backtest(candles, options = {}) {
         const notional = qty * entry;
         const entryFee = notional * cfg.feeRate;
         if (qty > 0 && notional + entryFee <= cash) {
-          cash -= notional + entryFee;
+          if (signal.action === 'LONG') {
+            cash -= notional + entryFee;
+          } else {
+            // Reserve 1x notional collateral for the short position.
+            cash -= notional + entryFee;
+          }
           fees += entryFee;
-          position = { side: signal.action, qty, entry, entryFee, entryBar: i, stop: signal.stop, target: signal.target, bestPrice: entry, holdBars: 0 };
+          position = {
+            side: signal.action,
+            qty,
+            entry,
+            entryFee,
+            margin: signal.action === 'SHORT' ? notional : 0,
+            entryBar: i,
+            stop: signal.stop,
+            target: signal.target,
+            bestPrice: entry,
+            holdBars: 0
+          };
         }
       }
     }
@@ -107,6 +136,7 @@ export function walkForward(candles, { trainRatio = 0.7, ...options } = {}) {
   const split = Math.floor(candles.length * trainRatio);
   if (split < 60 || candles.length - split < 40) return { ok: false, reason: 'invalid-split' };
   const train = backtest(candles.slice(0, split), options);
-  const test = backtest(candles.slice(Math.max(0, split - options.minCandles || 60)), options);
+  const warmup = options.minCandles ?? DEFAULT_SMART_CONFIG.minCandles;
+  const test = backtest(candles.slice(Math.max(0, split - warmup)), options);
   return { ok: true, split, train, test };
 }
