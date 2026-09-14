@@ -37,8 +37,8 @@ assert.ok(Number.isFinite(result.finalEquity), 'final equity must be finite');
 assert.ok(result.fees > 0, 'fees must be charged');
 assert.ok(result.maxDrawdownPct >= 0 && result.maxDrawdownPct <= 100, 'drawdown must be bounded');
 assert.equal(result.trades, result.wins + result.losses, 'trade accounting must balance');
-assert.ok(result.trades.some((t) => t.side === 'LONG'), 'backtester should exercise LONG path');
-assert.ok(result.trades.some((t) => t.side === 'SHORT'), 'backtester should exercise SHORT path');
+assert.ok(result.tradeDetails.some((t) => t.side === 'LONG'), 'backtester should exercise LONG path');
+assert.ok(result.tradeDetails.some((t) => t.side === 'SHORT'), 'backtester should exercise SHORT path');
 
 const wf = walkForward(data, { trainRatio: 0.7, initialCapital: 1000 });
 assert.equal(wf.ok, true);
