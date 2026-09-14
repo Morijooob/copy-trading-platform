@@ -278,11 +278,16 @@ export class SmartTradingEngine {
       if (this.position.side === 'LONG') this.position.bestPrice = Math.max(this.position.bestPrice, current);
       else this.position.bestPrice = Math.min(this.position.bestPrice, current);
 
-      const trailing = this.position.side === 'LONG'
-        ? this.position.bestPrice - (signal.atr ?? 0) * this.config.trailingAtrMultiplier
-        : this.position.bestPrice + (signal.atr ?? 0) * this.config.trailingAtrMultiplier;
-      if (this.position.side === 'LONG') this.position.stop = Math.max(this.position.stop, trailing);
-      else this.position.stop = Math.min(this.position.stop, trailing);
+      // Never mutate the protective stop from an unavailable/invalid ATR. A NO_TRADE
+      // signal can still carry a valid price, but its ATR is not guaranteed to be
+      // present. Using zero here would collapse the trailing distance to bestPrice.
+      if (finitePositive(signal.atr)) {
+        const trailing = this.position.side === 'LONG'
+          ? this.position.bestPrice - signal.atr * this.config.trailingAtrMultiplier
+          : this.position.bestPrice + signal.atr * this.config.trailingAtrMultiplier;
+        if (this.position.side === 'LONG') this.position.stop = Math.max(this.position.stop, trailing);
+        else this.position.stop = Math.min(this.position.stop, trailing);
+      }
 
       const stopHit = this.position.side === 'LONG' ? current <= this.position.stop : current >= this.position.stop;
       const targetHit = this.position.side === 'LONG' ? current >= this.position.target : current <= this.position.target;
