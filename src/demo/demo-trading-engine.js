@@ -1,3 +1,4 @@
+// CANONICAL_DEMO_ENGINE: deployed site engine must remain behaviorally aligned.
 export const DEFAULT_DEMO_CONFIG = Object.freeze({
   feeRate: 0.001,
   allocationPct: 0.95,
@@ -139,7 +140,6 @@ export class DemoTradingEngine {
         ? (currentPrice - entry) / entry
         : (entry - currentPrice) / entry;
 
-      // Hard risk exits always win over strategy reversal.
       let reason = null;
       if (movePct >= this.config.takeProfitPct) reason = 'take-profit';
       else if (movePct <= -this.config.stopLossPct) reason = 'stop-loss';
@@ -151,9 +151,6 @@ export class DemoTradingEngine {
       }
     }
 
-    // A close is a terminal action for this cycle. Do not decrement cooldown
-    // or re-enter immediately; this prevents same-tick churn and race-like
-    // open/close/open sequences.
     if (closedThisCycle) {
       return this.snapshot(best);
     }
