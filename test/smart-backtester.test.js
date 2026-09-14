@@ -14,8 +14,18 @@ function candlesFromReturns(returns, start = 100) {
 
 function regimeData() {
   const out = [];
-  for (let i = 0; i < 180; i += 1) out.push(0.0025 + ((i % 7) - 3) * 0.00015);
-  for (let i = 0; i < 120; i += 1) out.push(-0.0022 + ((i % 9) - 4) * 0.00016);
+  // Strong but non-monotonic uptrend: periodic pullbacks keep RSI in a realistic
+  // confirmation band instead of forcing RSI to 100 and making every signal invalid.
+  for (let i = 0; i < 180; i += 1) {
+    const cycle = i % 6;
+    out.push(cycle < 4 ? 0.0019 : -0.0010);
+  }
+  // Strong but non-monotonic downtrend: periodic rebounds keep RSI realistic.
+  for (let i = 0; i < 120; i += 1) {
+    const cycle = i % 6;
+    out.push(cycle < 4 ? -0.0017 : 0.0009);
+  }
+  // Low-amplitude chop should not manufacture trades.
   for (let i = 0; i < 120; i += 1) out.push((i % 2 ? 1 : -1) * 0.00015);
   return candlesFromReturns(out);
 }
@@ -27,6 +37,8 @@ assert.ok(Number.isFinite(result.finalEquity), 'final equity must be finite');
 assert.ok(result.fees > 0, 'fees must be charged');
 assert.ok(result.maxDrawdownPct >= 0 && result.maxDrawdownPct <= 100, 'drawdown must be bounded');
 assert.equal(result.trades, result.wins + result.losses, 'trade accounting must balance');
+assert.ok(result.trades.some((t) => t.side === 'LONG'), 'backtester should exercise LONG path');
+assert.ok(result.trades.some((t) => t.side === 'SHORT'), 'backtester should exercise SHORT path');
 
 const wf = walkForward(data, { trainRatio: 0.7, initialCapital: 1000 });
 assert.equal(wf.ok, true);
