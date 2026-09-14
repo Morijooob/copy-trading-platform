@@ -48,7 +48,7 @@
       if(!candidate) reason='داده کافی برای محاسبه سیگنال وجود ندارد';
       else if(candidate.score<CONFIG.minScore) reason=`امتیاز کاندیدا ${candidate.score} است؛ حداقل ورود ${CONFIG.minScore} است`;
       else reason=`شرایط ورود تأیید شد: ${candidate.signal==='BUY'?'LONG':'SHORT'} با امتیاز ${candidate.score}`;
-      if(this.position) reason=`پوزیشن ${this.position.side} باز است؛ موتور در حال مدیریت آن است`;
+      if(this.position) reason=`پوزیشن ${this.position.side} باز است؛ اقدام موتور: HOLD و مدیریت ریسک`;
       else if(!this.position&&this.cooldown>0) reason=`دوره خنک‌سازی فعال است؛ ${this.cooldown} چرخه باقی مانده`;
       this.diagnostic={reason,candidate};
       let closed=false;
@@ -64,7 +64,9 @@
 
   function render(s){
     $('status').textContent=running?'بازار واقعی فعال — فقط Dry-Run':'متوقف است';
-    $('equity').textContent=fmt(s.equity); $('unrealized').textContent=fmt(s.unrealized); $('realized').textContent=fmt(s.realized); $('fees').textContent=fmt(s.fees); $('total').textContent=fmt(s.totalPnl); $('orders').textContent=s.orders; $('cycles').textContent=s.cycleCount; $('position').textContent=s.position?`${s.position.side} · ${s.position.symbol}`:'FLAT'; $('signal').textContent=s.best?(s.best.signal==='BUY'?'LONG':'SHORT'):'NO TRADE'; $('score').textContent=s.best?s.best.score:(s.candidate?s.candidate.score:'—'); $('symbol').textContent=s.best?s.best.symbol:(s.candidate?s.candidate.symbol:'—'); $('candidate').textContent=s.candidate?`${s.candidate.symbol} · ${s.candidate.signal==='BUY'?'LONG':'SHORT'} · ${s.candidate.score}/100`:'—'; $('reason').textContent=s.reason||'—'; $('btc').textContent=fmt(s.lastPrices.BTC); $('eth').textContent=fmt(s.lastPrices.ETH); $('sol').textContent=fmt(s.lastPrices.SOL); $('updated').textContent=lastUpdate?new Date(lastUpdate).toLocaleTimeString('fa-IR'):'—';
+    $('equity').textContent=fmt(s.equity); $('unrealized').textContent=fmt(s.unrealized); $('realized').textContent=fmt(s.realized); $('fees').textContent=fmt(s.fees); $('total').textContent=fmt(s.totalPnl); $('orders').textContent=s.orders; $('cycles').textContent=s.cycleCount; $('position').textContent=s.position?`${s.position.side} · ${s.position.symbol}`:'FLAT';
+    $('signal').textContent=s.position?(s.position.side==='LONG'?'LONG فعال':'SHORT فعال'):(s.best?(s.best.signal==='BUY'?'LONG':'SHORT'):'NO TRADE');
+    $('score').textContent=s.best?s.best.score:(s.candidate?s.candidate.score:'—'); $('symbol').textContent=s.position?s.position.symbol:(s.best?s.best.symbol:(s.candidate?s.candidate.symbol:'—')); $('candidate').textContent=s.candidate?`${s.candidate.symbol} · ${s.candidate.signal==='BUY'?'LONG':'SHORT'} · ${s.candidate.score}/100`:'—'; $('reason').textContent=s.reason||'—'; $('btc').textContent=fmt(s.lastPrices.BTC); $('eth').textContent=fmt(s.lastPrices.ETH); $('sol').textContent=fmt(s.lastPrices.SOL); $('updated').textContent=lastUpdate?new Date(lastUpdate).toLocaleTimeString('fa-IR'):'—';
     $('message').innerHTML=lastError?`<span class="bad">داده بازار دریافت نشد: ${lastError} — موتور در این حالت معامله نمی‌کند.</span>`:'<span class="ok">داده بازار واقعی دریافت شد؛ اجرای سفارش واقعی کاملاً خاموش است.</span>';
     const ev=engine.events.slice(-12).reverse(); $('events').innerHTML=ev.length?ev.map(e=>`<div class="box">${e.type} · ${e.symbol||''} ${e.side||''} · ${e.reason||''} ${e.price?fmt(e.price):''} ${e.result!=null?'· P/L '+fmt(e.result):''}</div>`).join(''):'هنوز رویدادی ثبت نشده است.';
   }
