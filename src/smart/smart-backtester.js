@@ -1,13 +1,44 @@
-// SMART TRADING BACKTESTER v1
+// SMART TRADING BACKTESTER v2
 // Research-only: replays closed candles through the isolated smart engine.
 // No exchange/API calls. Includes fees, slippage, max drawdown and walk-forward split.
 import { DEFAULT_SMART_CONFIG, analyzeMarket, positionSize } from './smart-trading-engine.js';
 
 function finite(v) { return Number.isFinite(v); }
 
+function validCandle(candle) {
+  if (!candle || typeof candle !== 'object') return false;
+  const values = [candle.open, candle.high, candle.low, candle.close, candle.volume];
+  if (!values.every(finite)) return false;
+  if (candle.close <= 0 || candle.open <= 0 || candle.high <= 0 || candle.low <= 0 || candle.volume < 0) return false;
+  if (candle.high < candle.low || candle.high < candle.open || candle.high < candle.close) return false;
+  if (candle.low > candle.open || candle.low > candle.close) return false;
+  return true;
+}
+
+function emptyResult(initialCapital, reason = null) {
+  return {
+    initialCapital,
+    finalEquity: initialCapital,
+    returnPct: 0,
+    maxDrawdownPct: 0,
+    trades: 0,
+    tradeDetails: [],
+    wins: 0,
+    losses: 0,
+    winRate: 0,
+    profitFactor: 0,
+    fees: 0,
+    realized: 0,
+    ...(reason ? { ok: false, reason } : {})
+  };
+}
+
 export function backtest(candles, options = {}) {
   const cfg = { ...DEFAULT_SMART_CONFIG, ...options };
   const initialCapital = Math.max(1, Number(options.initialCapital) || 1000);
+  if (!Array.isArray(candles) || candles.length === 0) return emptyResult(initialCapital, 'invalid-candles');
+  if (!candles.every(validCandle)) return emptyResult(initialCapital, 'invalid-candle-data');
+
   let cash = initialCapital;
   let position = null;
   let realized = 0;
@@ -120,8 +151,6 @@ export function backtest(candles, options = {}) {
   const grossLoss = trades.filter(t => t.pnl < 0).reduce((s, t) => s + Math.abs(t.pnl), 0);
   const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? Infinity : 0);
 
-  // Keep `trades` as the historical numeric count for compatibility; expose
-  // the detailed trade ledger separately so callers can inspect each path.
   return {
     initialCapital,
     finalEquity,
@@ -145,5 +174,6 @@ export function walkForward(candles, { trainRatio = 0.7, ...options } = {}) {
   const train = backtest(candles.slice(0, split), options);
   const warmup = options.minCandles ?? DEFAULT_SMART_CONFIG.minCandles;
   const test = backtest(candles.slice(Math.max(0, split - warmup)), options);
+  if (train.ok === false || test.ok === false) return { ok: false, reason: train.reason ?? test.reason };
   return { ok: true, split, train, test };
 }
