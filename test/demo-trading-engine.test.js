@@ -1,21 +1,33 @@
 import assert from 'node:assert/strict';
 import { DemoTradingEngine, signalFromRows } from '../src/demo/demo-trading-engine.js';
 
-function rows(prices) {
-  return prices.map((p, i) => [i, 0, 0, 0, p, 0]);
+function rows(prices, volumes = []) {
+  return prices.map((p, i) => [i, 0, 0, 0, p, Number(volumes[i] ?? 0)]);
 }
-function market(price, baseline = 100) {
-  // 20 historical closed candles at baseline, then the latest closed candle,
-  // then the current market price used for execution/P&L marking.
+function market(price, baseline = 100, volume = 0) {
   const prices = Array.from({ length: 20 }, () => baseline);
   prices.push(price, price);
-  return rows(prices);
+  return rows(prices, Array.from({ length: prices.length }, () => volume));
+}
+function marketWithVolume(price, baseline = 100, recentVolume = 2, baseVolume = 1) {
+  const prices = Array.from({ length: 20 }, () => baseline);
+  prices.push(price, price);
+  const volumes = Array.from({ length: 20 }, () => baseVolume);
+  volumes.push(recentVolume, recentVolume);
+  return rows(prices, volumes);
 }
 
 // Signal engine must reject insufficient data and return a usable price/signal.
 assert.equal(signalFromRows(rows([100, 101])), null);
 assert.equal(signalFromRows(market(101)).signal, 'BUY');
 assert.equal(signalFromRows(market(99)).signal, 'SELL');
+
+// The old score was capped at 60 while the default gate was also 60,
+// effectively turning the gate into a max-score-only lockout. The new
+// score has headroom above the gate and volume can confirm a smaller move.
+assert.ok(signalFromRows(market(101)).score > 70);
+assert.ok(signalFromRows(marketWithVolume(100.4)).score >= 70);
+assert.ok(signalFromRows(market(100.45)).score < 70);
 
 // Weak signals must not churn the default demo account into trades.
 const guarded = new DemoTradingEngine({ capital: 100 });
