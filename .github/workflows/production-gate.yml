@@ -12,6 +12,7 @@ permissions:
 
 # Single authoritative production-readiness signal.
 # Every main-branch commit re-evaluates the complete gate.
+# Trigger verification patch: validate that GitHub Actions executes this workflow on PRs.
 concurrency:
   group: production-gate-${{ github.ref }}
   cancel-in-progress: true
