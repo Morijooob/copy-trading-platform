@@ -1,3 +1,4 @@
+// DEPLOYED_DEMO_ENGINE: behavior must remain aligned with src/demo/demo-trading-engine.js
 export const DEFAULT_DEMO_CONFIG = Object.freeze({
   feeRate: 0.001,
   allocationPct: 0.95,
