@@ -10,8 +10,8 @@ on:
 permissions:
   contents: read
 
-# Keep exactly one authoritative production-readiness signal.
-# A fresh commit also guarantees the gate is re-evaluated on the current main head.
+# Single authoritative production-readiness signal.
+# Every main-branch commit re-evaluates the complete gate.
 concurrency:
   group: production-gate-${{ github.ref }}
   cancel-in-progress: true
@@ -62,7 +62,5 @@ jobs:
             echo "- Workflow run: $GITHUB_RUN_ID"
             echo "- Node: $(node --version)"
             echo "- npm: $(npm --version)"
-            if [ "$GITHUB_JOB" = 'production-gate' ]; then
-              echo '- Real trading remains LOCKED until this gate and runtime controls explicitly permit it.'
-            fi
+            echo '- Real trading remains LOCKED until this gate and runtime controls explicitly permit it.'
           } >> "$GITHUB_STEP_SUMMARY"
