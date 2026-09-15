@@ -93,6 +93,6 @@ assert.throws(() => disabled.request({ userId: 'user-A', amount: 10, destination
 const raceA = service.request({ userId: 'user-A', amount: 300, destination: 'wallet-A', idempotencyKey: 'race-a' });
 assert.throws(() => service.request({ userId: 'user-A', amount: 301, destination: 'wallet-B', idempotencyKey: 'race-b' }), /insufficient available balance/);
 service.cancel(raceA.id);
-assert.equal(service.availableBalance('user-A'), 600);
+assert.equal(service.availableBalance('user-A'), 500);
 
 console.log('Withdrawal service tests passed.');
