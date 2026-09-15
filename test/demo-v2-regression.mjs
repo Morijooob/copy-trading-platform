@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const html=fs.readFileSync('site/demo-v2.html','utf8');
+assert.match(html,/function startDemo\(\)/);
+assert.match(html,/function runScenario\(name\)/);
+assert.match(html,/paths=\{profit:\[64000,64500,65000,65500,66000,66500,67000,67500\],loss:/);
+assert.match(html,/localStorage\.getItem\('ct_session'\)/);
+assert.match(html,/هیچ سفارش واقعی به صرافی ارسال نمی‌کند/);
+assert.doesNotMatch(html,/if\(cycles>=5\).*stop/);
+console.log('DEMO V2 REGRESSION PASS');
