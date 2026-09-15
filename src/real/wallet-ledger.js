@@ -46,6 +46,14 @@ export class WalletLedger {
     };
   }
 
+  restore(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object' || !snapshot.accounts || !Array.isArray(snapshot.entries)) {
+      throw new Error('invalid wallet snapshot');
+    }
+    this.accounts = new Map(Object.entries(snapshot.accounts).map(([userId, assets]) => [userId, new Map(Object.entries(assets))]));
+    this.entries = snapshot.entries.map((entry) => Object.freeze({ ...entry }));
+  }
+
   #entry(type, userId, asset, amount, reference) {
     this.entries.push(Object.freeze({ id: `${Date.now()}-${this.entries.length + 1}`, type, userId, asset, amount, reference, at: new Date().toISOString() }));
   }
