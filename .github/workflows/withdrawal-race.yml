@@ -1,0 +1,88 @@
+name: Withdrawal Race Test
+
+on:
+  push:
+    branches:
+      - hardening/withdrawal-race-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  race:
+    name: Concurrent withdrawal race
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: race_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d race_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d race_test -v ON_ERROR_STOP=1 -f test/withdrawal-db-race.sql
+
+      - name: Race unique withdrawals across 20 sessions
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/race && mkdir -p /tmp/race
+          for i in $(seq 1 20); do
+            (
+              if psql -h 127.0.0.1 -U postgres -d race_test -v ON_ERROR_STOP=1 -Atc "select request_withdrawal('race-user',100,'unique-key-$i');" > "/tmp/race/$i.out" 2> "/tmp/race/$i.err"; then
+                echo success > "/tmp/race/$i.status"
+              else
+                echo failed > "/tmp/race/$i.status"
+              fi
+            ) &
+          done
+          wait
+          successes=$(grep -l '^success$' /tmp/race/*.status | wc -l)
+          test "$successes" -eq 10
+          balance=$(psql -h 127.0.0.1 -U postgres -d race_test -Atc "select balance from wallet_accounts where user_id='race-user';")
+          locked=$(psql -h 127.0.0.1 -U postgres -d race_test -Atc "select locked_balance from wallet_accounts where user_id='race-user';")
+          rows=$(psql -h 127.0.0.1 -U postgres -d race_test -Atc "select count(*) from wallet_withdrawal_requests where user_id='race-user';")
+          test "$balance" = "0"
+          test "$locked" = "1000"
+          test "$rows" -eq 10
+
+      - name: Race duplicate idempotency across 20 sessions
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -h 127.0.0.1 -U postgres -d race_test -v ON_ERROR_STOP=1 -c "update wallet_accounts set balance=1000, locked_balance=0 where user_id='race-user'; delete from wallet_withdrawal_requests where user_id='race-user';"
+          rm -rf /tmp/dup && mkdir -p /tmp/dup
+          for i in $(seq 1 20); do
+            (
+              psql -h 127.0.0.1 -U postgres -d race_test -v ON_ERROR_STOP=1 -Atc "select request_withdrawal('race-user',100,'same-key');" > "/tmp/dup/$i.out"
+            ) &
+          done
+          wait
+          ids=$(cat /tmp/dup/*.out | sort -u | wc -l)
+          rows=$(psql -h 127.0.0.1 -U postgres -d race_test -Atc "select count(*) from wallet_withdrawal_requests where user_id='race-user';")
+          balance=$(psql -h 127.0.0.1 -U postgres -d race_test -Atc "select balance from wallet_accounts where user_id='race-user';")
+          locked=$(psql -h 127.0.0.1 -U postgres -d race_test -Atc "select locked_balance from wallet_accounts where user_id='race-user';")
+          test "$ids" -eq 1
+          test "$rows" -eq 1
+          test "$balance" = "900"
+          test "$locked" = "100"
+          echo "Concurrent withdrawal race test passed."
