@@ -11,7 +11,6 @@ permissions:
   contents: read
 
 # One authoritative regression pipeline. New commits replace stale queued runs.
-# CI trigger heartbeat: every main push must create a recorded regression run.
 concurrency:
   group: copy-trading-ci-${{ github.ref }}
   cancel-in-progress: true
@@ -29,7 +28,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          package-manager-cache: false
 
       - name: Verify repository invariants
         run: |
