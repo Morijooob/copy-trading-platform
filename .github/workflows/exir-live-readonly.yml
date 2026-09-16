@@ -1,5 +1,6 @@
 name: Exir Live Read-Only Gate
 
+# Safe verification trigger: behavior unchanged; this push re-runs the live read-only gate.
 on:
   push:
     branches: [main]
