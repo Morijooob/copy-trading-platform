@@ -18,12 +18,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
-          package-manager-cache: false
       - name: Run Gate 4
         run: node test/gate4.test.js
       - name: Run network resilience tests
