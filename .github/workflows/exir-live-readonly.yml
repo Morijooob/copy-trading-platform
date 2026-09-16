@@ -1,6 +1,5 @@
 name: Exir Live Read-Only Gate
 
-# Safe verification trigger: behavior unchanged; this push re-runs the live read-only gate.
 on:
   push:
     branches: [main]
@@ -24,11 +23,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Node.js
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          package-manager-cache: false
       - name: Verify secrets are present
         shell: bash
         run: |
