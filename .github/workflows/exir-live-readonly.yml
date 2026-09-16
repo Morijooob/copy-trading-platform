@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: exir-live-readonly-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   exir-live-readonly:
     name: Live Exir read-only connection
@@ -24,10 +28,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          package-manager-cache: false
       - name: Verify secrets are present
         shell: bash
         run: |
+          set -euo pipefail
           test -n "$EXIR_API_KEY" || { echo "EXIR_API_KEY is missing"; exit 1; }
           test -n "$EXIR_API_SECRET" || { echo "EXIR_API_SECRET is missing"; exit 1; }
       - name: Run live read-only smoke test
         run: node test/exir-live-readonly.test.js
+      - name: Publish read-only decision
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '# 🔒 EXIR LIVE READ-ONLY GATE'
+            echo
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Workflow run: $GITHUB_RUN_ID"
+            echo '- Order placement: NEVER attempted by this gate'
+            echo '- Withdrawals: NEVER attempted by this gate'
+            echo '- Trading remains locked until independent production controls permit it.'
+          } >> "$GITHUB_STEP_SUMMARY"
