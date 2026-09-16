@@ -1,0 +1,49 @@
+name: Real Execution Preflight Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/real/real-execution-preflight.js'
+      - 'src/real/risk-monitor-gate.js'
+      - 'test/real-execution-preflight.test.js'
+      - '.github/workflows/real-execution-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: real-execution-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    name: Fail-closed real execution preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Run dedicated preflight regression
+        run: node test/real-execution-preflight.test.js
+      - name: Publish preflight decision
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '# 🔒 REAL EXECUTION PREFLIGHT'
+            echo
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Workflow run: $GITHUB_RUN_ID"
+            echo '- Order placement: NEVER attempted by this gate'
+            echo '- Real trading: remains LOCKED'
+            echo '- Gate purpose: verify fail-closed security, market, Exir read-only, and runtime-risk preflight behavior.'
+          } >> "$GITHUB_STEP_SUMMARY"
