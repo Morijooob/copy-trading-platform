@@ -12,7 +12,6 @@ permissions:
 
 # Single authoritative production-readiness signal.
 # Every main-branch commit re-evaluates the complete gate.
-# Trigger verification patch: validate that GitHub Actions executes this workflow on PRs.
 concurrency:
   group: production-gate-${{ github.ref }}
   cancel-in-progress: true
@@ -32,7 +31,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          package-manager-cache: false
 
       - name: Verify production-gate invariants
         shell: bash
